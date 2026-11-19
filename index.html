@@ -216,6 +216,52 @@ const GENRES={
   a:W('眠い 新しい 古い 高い 安い うれしい さびしい こわい かわいい かっこいい うるさい 静かな おいしい 重い 軽い 遅い 速い 広い 狭い 明るい 暗い 甘い 辛い 痛い 忙しい ひまな 元気な 不思議な 完璧な 最後の 最初の ふわふわの あやふやな'),
   d:W('毎日 毎朝 夜中に 今夜 ずっと もう一回 一緒に 勝手に ふたりで みんなで なんとなく たしかに もちろん だって ほんとに ちゃんと のんびり ゆっくり そろそろ とりあえず 一応 結構 割と たぶん さっき 昨日 明日から おはよう ただいま はじめまして お疲れ様')}
 };
+// 追加の言葉(ジャンル別・全体用)。既にある言葉は重ならないように混ぜる
+const EXTRA={
+ love:{
+  n:W('片思い 両思い 初デート 膝枕 プロポーズ 婚約指輪 ウェディングドレス 新婚旅行 ラブレター 交換日記 おそろい 合鍵 待ち合わせ 並木道 桜 流れ星 七夕 クリスマスイブ 幼なじみ 運命の人 彼氏 彼女 旦那 恋人 初キス ハート 薔薇 キャンドル 星空 砂浜 灯台 結婚記念日 恩 感謝'),
+  v:W('口説く 告白する 誘う 惹かれる 結ばれる 寄り添う 見送る 手をつなぐ 抱き寄せる 微笑む 悩む 恋する 憧れる 慰める 励ます 照らす 祝う 誓い合う 巡り会う'),
+  a:W('甘酸っぱい 照れくさい いじらしい 儚い 愛おしい 尊い ほほえましい 一途な ロマンチックな きらきらの 純粋な 情熱的な'),
+  d:W('ぎゅっと ドキドキ キュン ふわっと うっとり にっこり しみじみ 心の底から 命ある限り 何度でも ずっと前から 世界中で 死ぬほど')},
+ excuse:{
+  n:W('渋滞 遅延 停電 故障 バグ 迷子 落とし物 忘れ物 目覚まし時計 アラーム 腹痛 頭痛 花粉 二日酔い 徹夜 言い分 証拠 アリバイ 自白 反省文 始末書 弁償 土下座 お詫び 菓子折り 割れた皿 窓ガラス 猫 弟 妹 宇宙人 風 手違い 勘違い 誤解 ミス'),
+  v:W('詫びる 弁解する 責める 頭を下げる 土下座する 否定する 認める 泣きつく 逃げ回る ごまかす とぼける しらを切る 隠し通す 償う 弁償する 気づく 驚く 慌てる 焦る'),
+  a:W('気まずい 苦しい 見苦しい しどろもどろの 後ろめたい 怪しげな うっかりの まぎらわしい ずるい ひどい'),
+  d:W('すみません ごめんなさい ほんの出来心で 悪気はなく 神に誓って おそるおそる あたふた おどおど こそこそ びくびく ひたすら 平謝りで すかさず')},
+ work:{
+  n:W('企画書 資料 プレゼン スライド 契約書 見積書 請求書 納期 締切 予算 売上 利益 赤字 黒字 株 面接 新入社員 取引先 お客様 店員 レジ 行列 看板 チラシ ポスター キャッチコピー ロゴ 出張 研修 朝礼 ランチ 休憩室 コピー機 ホワイトボード'),
+  v:W('提案する 交渉する 契約する 発注する 納品する 勧誘する 接客する 面接する 出張する 退職する 転職する 昇進する 値切る 注文する 営業する 開発する 設計する 発表する 説明する 報告する 相談する 確認する'),
+  a:W('斬新な 画期的な 驚異の 破格の 期間限定の 業界初の 当社自慢の 地味な 堅実な 有能な 真剣な'),
+  d:W('至急 取り急ぎ 何卒 恐縮ですが 持ち帰って 前向きに 誠心誠意 期間限定で 今だけ')},
+ fantasy:{
+  n:W('聖剣 魔法 呪文 魔法陣 杖 盾 兜 鎧 水晶 洞窟 迷宮 塔 城 王国 空中都市 竜 魔物 エルフ ドワーフ 獣人 巨人 精霊 吸血鬼 狼男 海賊 宝箱 財宝 羅針盤 タイムマシン 異世界 魔界 天界 呪い 予言 古代文明 遺跡 銀河 UFO'),
+  v:W('覚醒する 転生する 変身する 復活する 斬る 射る 守り抜く 呪う 封じる 解き放つ 旅をする 冒険する 探す 宿る 輝く 蘇る 滅ぼす 立ち向かう'),
+  a:W('神秘的な 禍々しい 神々しい 邪悪な 勇ましい 古代の 異世界の 無敵の 不死身の 光り輝く 闇の'),
+  d:W('いざ 覚悟しろ 我が名にかけて 千年の 遠い昔 はるか彼方で 勇気を出して 今こそ')},
+ news:{
+  n:W('号外 ニュース 見出し 記者 アナウンサー 取材 会見 発表 調査 統計 世論 避難 注意報 警報 地震 津波 猛暑 大雪 火事 事故 大会 決勝 優勝 金メダル 世界記録 新記録 ホームラン 逆転 延長戦 監督 キャプテン'),
+  v:W('報じる 伝える 取材する 避難する 注意する 解説する 予想する 当選する 辞任する 逆転する 追い抜く 打つ 投げる 蹴る 決める 勝つ 負ける'),
+  a:W('衝撃の 驚きの 歴史的な 異例の 前代未聞の 記録的な 大規模な 緊迫した'),
+  d:W('続報 ただいま 現場から 繰り返します 臨時で 一斉に 相次いで 次々と')},
+ gourmet:{
+  n:W('焼き鳥 天ぷら うなぎ ステーキ オムライス グラタン シチュー 親子丼 天丼 たい焼き 大福 ケーキ クッキー パンケーキ クレープ かき氷 ソフトクリーム 肉まん 豚汁 お好み焼き もんじゃ 鍋 すき焼き しゃぶしゃぶ 刺身 漬物 唐辛子 山椒 わさび 醤油 ソース マヨネーズ ケチャップ 砂糖 塩 出汁 ごはん'),
+  v:W('炒める 蒸す 茹でる 煮込む 焦がす 味付けする 試食する 召し上がる ほおばる すする かじる 平らげる 残す 予約する 乾杯する'),
+  a:W('ジューシーな ふっくらした サクサクの とろとろの もちもちの ほくほくの 濃厚な 絶品の 香り高い 爽やかな'),
+  d:W('ぱくっと ごくごく もぐもぐ ほかほか じゅわっと とろーり がぶっと ぺろり ごちそうさま')},
+ daily:{
+  n:W('朝ごはん 通勤 通学 満員バス 信号 コンビニ スーパー カフェ 図書館 映画館 遊園地 動物園 水族館 花壇 ベンチ ペット 洗濯物 掃除機 冷房 暖房 お風呂 シャンプー タオル 鏡 時計 カレンダー 日記 お土産 プレゼント 連休 週末 日曜日'),
+  v:W('掃除する 洗濯する 料理する 散歩する 買い物する 昼寝する 通う 立ち寄る 並ぶ 乗る 降りる 開ける 閉める 押す 引く 拭く 磨く 片付ける'),
+  a:W('のどかな にぎやかな 退屈な 楽しい おだやかな くだらない 平凡な ささやかな'),
+  d:W('ぼんやり うとうと ごろごろ ぶらぶら のろのろ せかせか ぐうぐう すやすや')},
+ all:{
+  n:W('消しゴム 定規 ホチキス 輪ゴム 鉛筆 ランドセル 黒板 チョーク 水筒 弁当 ふりかけ 提灯 風鈴 扇風機 こたつ ストーブ 湯たんぽ 洗濯バサミ 郵便ポスト 自動販売機 公衆電話 回転寿司 ジェットコースター お化け屋敷 ブランコ すべり台 砂場 噂 運動会 花見 初詣 盆踊り'),
+  v:W('揺れる 転がる 跳ねる 回る 潜る 登る 滑る 叩く 掴む 担ぐ 抱える 抜く'),
+  a:W('ぷにぷにの ぴかぴかの ぐにゃぐにゃの ぬるぬるの ふかふかの ざらざらの つるつるの とげとげの もじゃもじゃの でっかい ちっちゃい'),
+  d:W('ワクワク ハラハラ ガーン ジーン ニヤリ ぷんぷん しくしく めそめそ ばたばた きょろきょろ ぺこぺこ へとへと くたくた ふらふら ばっちり'),
+  e:W('でしょう なのだ ですよね わよ ってこと ました ません たい ください ましょう だぜ なのです かしら ですわ だと思う らしいよ かもね')}
+};
+const uniq=a=>Array.from(new Set(a));
+Object.keys(GENRES).forEach(g=>{const x=EXTRA[g];if(!x)return;['n','v','a','d'].forEach(k=>{GENRES[g][k]=uniq(GENRES[g][k].concat(x[k]||[]))})});
 // ジャンルに関係のない言葉(ちょっとズレる面白さ用)も混ぜるための全体プール
 const DECK={
  n:W('冷蔵庫 納豆 宇宙 校長先生 満員電車 母 犬 牛丼 財布 靴下 暗号 地球 魔王 勇者 賞味期限 領収書 有給 会議 残業 既読 未読 圏外 充電 5% ダイエット 卵 焼きそば カレー ラーメン 寿司 筋肉 鼻毛 おでこ へそ 足の小指 背中 指紋 初恋 嘘 本気 秘密 伝説 奇跡 運命 偶然 伏線 黒歴史 推し 課金 ガチャ 爆死 限定 完売 返品 在庫 値上げ 無料 税込 ポイント 福袋 割り勘 遅刻 寝坊 二度寝 夢 満月 台風 雷 虹 砂漠 銭湯 温泉 踏切 エレベーター 屋上 体育館 保健室 職員室 給食 宿題 席替え だんご ペンギン トマト ピアノ ロケット ゾウ たこ焼き 消しゴム ハンバーグ ドーナツ サボテン ブランコ おみくじ 味噌汁 コタツ 自販機 ほくろ あくび しゃっくり ため息 寝言 武士 忍者 探偵 社長 店長 幽霊 赤ちゃん おじいちゃん リモコン 電卓 ハンコ 名刺 ゴミ箱 洗濯機 掃除機 炊飯器 電子レンジ 歯ブラシ ティッシュ 時刻表 屋根裏 地下室 サブスク パスワード バグ スクショ スタンプ'),
@@ -225,7 +271,8 @@ const DECK={
  e:W('だよ です じゃない かもしれない ね よ ! ? …… けど そして だから でも しかも もし なら ので として ばかり みたいな ほど なんて それとも んです らしい はず つもり と思う ことにした って言った でしょ だった じゃん かな ぞ わ かも みたい ようだ に違いない ところだ わけ')
 };
 // 全体プールにも各ジャンルの言葉を加える(重複は除く)
-['n','v','a','d'].forEach(k=>{DECK[k]=Array.from(new Set(DECK[k].concat(...Object.values(GENRES).map(g=>g[k]))))});
+['n','v','a','d'].forEach(k=>{DECK[k]=uniq(DECK[k].concat(...Object.values(GENRES).map(g=>g[k]),EXTRA.all[k]))});
+DECK.e=uniq(DECK.e.concat(EXTRA.all.e));
 const PROMPTS=[
 ['love','{P}へ、心からの感謝を伝える'],['love','{P}に、ひとめぼれしたと伝える'],['love','{P}の結婚式で、スピーチをする'],['love','{P}の誕生日に、お祝いの言葉を贈る'],
 ['love','{P}に、ずっと言えなかった気持ちを伝える'],['love','{P}に、お別れを告げる'],['love','{P}を、はげます'],['love','{P}に、とっておきの愛の言葉を贈る'],
@@ -269,7 +316,8 @@ let cid=0;
 /* ===== Claudeなしで遊ぶための通信 =====
    公開MQTTサーバー(WebSocket)を中継に使う。部屋ごとに1つのトピックを購読し、全員の発言をそこへ流す。
    外部ライブラリは使わない。?broker=wss://… で中継サーバーを差し替えられる。 */
-const BROKERS=(()=>{try{const b=new URLSearchParams(location.search).get('broker');if(b)return [b]}catch(e){}return ['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081']})();
+const BROKERS=(()=>{try{const b=new URLSearchParams(location.search).get('broker');if(b)return [b]}catch(e){}return ['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://mqtt.eclipseprojects.io:443/mqtt','wss://test.mosquitto.org:8081']})();
+let netErr='';
 const TE=new TextEncoder(),TD=new TextDecoder();
 const mqStr=s=>{const b=TE.encode(s);return [b.length>>8,b.length&255,...b]};
 const mqLen=n=>{const o=[];do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;o.push(d)}while(n>0);return o};
@@ -318,24 +366,26 @@ function mqttRoom(code){
   function open(){
     if(left)return;
     let w;
-    try{w=new WebSocket(BROKERS[bi%BROKERS.length],'mqtt')}catch(e){bi++;setTimeout(open,300);return}
+    const url=BROKERS[bi%BROKERS.length];
+    try{w=new WebSocket(url,'mqtt')}catch(e){netErr='接続先を開けません('+(e&&e.name||'error')+')';bi++;setTimeout(open,300);return}
     ws=w;w.binaryType='arraybuffer';
-    const to=setTimeout(()=>{if(!ready){try{w.close()}catch(e){}}},6000);
+    const to=setTimeout(()=>{if(!ready){netErr=url.replace(/^wss?:\/\//,'').split('/')[0]+' が応答しません';try{w.close()}catch(e){}}},5000);
     w.onopen=()=>{buf=new Uint8Array(0);w.send(mqPkt(0x10,[...mqStr('MQTT'),4,2,0,30,...mqStr(peer)]))};
     w.onmessage=e=>feed(new Uint8Array(e.data));
-    w.onerror=()=>{};
+    w.onerror=()=>{if(!ready)netErr=url.replace(/^wss?:\/\//,'').split('/')[0]+' に接続できません'};
     w.onclose=()=>{clearTimeout(to);clearInterval(pingT);const was=ready;ready=false;if(left||w!==ws)return;if(!was)bi++;setTimeout(open,was?800:300)};
   }
   return new Promise((res,rej)=>{
     firstOK=res;firstNG=rej;open();
-    setTimeout(()=>{if(!firstDone){left=true;try{ws&&ws.close()}catch(e){}rej(new Error('mqtt timeout'))}},16000);
+    setTimeout(()=>{if(!firstDone){left=true;try{ws&&ws.close()}catch(e){}rej(new Error('mqtt timeout'))}},22000);
   });
 }
 /* 部屋: Claude上で開いたときはroom機能、GitHubなど単体で開いたときは上のMQTT中継。どちらも使えなくてもボット戦は遊べる */
-const roomP=(typeof claude!=='undefined'&&claude&&claude.use)?claude.use('room').then(r=>r||null).catch(()=>null):Promise.resolve({join:async name=>mqttRoom(String(name).replace(/^g-/,''))});
+const mqttOnly={join:async name=>mqttRoom(String(name).replace(/^g-/,''))};
+const roomP=(typeof claude!=='undefined'&&claude&&claude.use)?claude.use('room').then(r=>r||null).catch(()=>null):Promise.resolve(null);
 let roomOK=null, netBusy=false;
-roomP.then(r=>{roomOK=!!r;const n=$('#netstat');if(n)n.textContent=netText()});
-const netText=()=>roomOK===null?'オンラインを確認中…':roomOK?'オンライン対戦が使えます。':'この画面ではオンライン対戦に接続できません。ボット相手のひとり用で試せます。';
+roomP.then(r=>{roomOK=true;const n=$('#netstat');if(n)n.textContent=netText()});
+const netText=()=>roomOK===null?'オンラインを確認中…':'オンライン対戦: 部屋を作る/コードで入ると接続します。';
 
 /* ================= 通信 ================= */
 const pl=pid=>S&&S.players.find(p=>p.pid===pid);
@@ -395,18 +445,20 @@ function handleAct(a){
       if(!p&&S.players.length<MAXP){S.players.push({pid:a.pid,name:cleanName(a.name),bot:0,score:0});pub()}
       break;
     case 'submit':{
-      const text=String(a.text||'').slice(0,200);
-      if(S.phase==='write'&&p&&a.pid!==S.parent&&text&&!(a.pid in H.texts)){H.texts[a.pid]=text;S.submitted.push(a.pid);pub();hostTick()}
+      const text=String(a.text||'').slice(0,200), cn=+a.n||0;
+      if(S.phase==='write'&&p&&a.pid!==S.parent&&text&&(cn>=(S.minC||1)||!Number.isFinite(+a.n))&&!(a.pid in H.texts)){H.texts[a.pid]=text;S.submitted.push(a.pid);pub();hostTick()}
       break}
     case 'clap':
       if(S.phase==='judge'&&S.clapOn&&p&&a.pid!==S.parent&&Number.isInteger(a.sid)&&H.subs[a.sid]&&H.subs[a.sid].pid!==a.pid&&!(a.pid in H.claps)){
-        H.claps[a.pid]=a.sid;S.clapped=Object.keys(H.claps);pub()}
+        H.claps[a.pid]=a.sid;S.clapped=Object.keys(H.claps);pub();botPickSoon()}
       break;
     case 'pick':
-      if(S.phase==='judge'&&a.pid===S.parent&&Number.isInteger(a.sid)&&H.subs[a.sid])doResult(a.sid);
+      if(S.phase==='judge'&&a.pid===S.parent&&Number.isInteger(a.sid)&&H.subs[a.sid]&&clapReady())doResult(a.sid);
       break;
   }
 }
+const clapReady=()=>!S.clapOn||(S.cneed||[]).filter(pid=>pl(pid)).every(pid=>S.clapped.includes(pid));
+function botPickSoon(){const par=pl(S.parent);if(par&&par.bot&&S.phase==='judge'&&clapReady()){H.timers.push(setTimeout(()=>{if(S.phase==='judge'&&clapReady())doResult(rnd(H.subs.length))},1500+rnd(2500)))}}
 function clearTimers(){H.timers.forEach(clearTimeout);H.timers=[]}
 function addBot(){
   const used=new Set(S.players.map(p=>p.name));
@@ -429,7 +481,10 @@ function botLine(){
     ()=>['みんなが',f(ds).t,nt(ns[1]),f(vs).t],
     ()=>['あなたに',nt(ns[2]),'する',f(es).t]
   ];
-  return f(pats)().join('');
+  let parts=f(pats)();
+  const extra=[()=>nt(f(ns)),()=>f(ds).t,()=>f(as).t,()=>f(vs).t,()=>nt(f(ns))];
+  while(parts.length<(S.minC||1))parts.splice(Math.max(0,parts.length-1),0,f(extra)());
+  return parts.join('');
 }
 function startGame(){
   if(S.players.length<3)return;
@@ -459,6 +514,7 @@ function toJudge(){
   H.subs=list;
   if(!list.length){doResult(null);return}
   S.phase='judge';S.subs=list.map(s=>[s.sid,s.text]);S.clapped=[];
+  S.cneed=S.clapOn?S.players.filter(p=>p.pid!==S.parent&&list.some(s=>s.pid!==p.pid)).map(p=>p.pid):[];
   if(S.clapOn)S.players.filter(p=>p.bot&&p.pid!==S.parent).forEach(b=>{
     H.timers.push(setTimeout(()=>{
       const c=list.filter(s=>s.pid!==b.pid);
@@ -466,8 +522,9 @@ function toJudge(){
     },2000+rnd(7000)));
   });
   const par=pl(S.parent);
-  if(par&&par.bot)H.timers.push(setTimeout(()=>{if(S.phase==='judge')doResult(rnd(list.length))},6000+rnd(3000)));
+  if(par&&par.bot&&!S.clapOn)H.timers.push(setTimeout(()=>{if(S.phase==='judge')doResult(rnd(list.length))},6000+rnd(3000)));
   pub();
+  botPickSoon();
 }
 function doResult(sid){
   clearTimers();
@@ -493,8 +550,14 @@ function hostTick(){
 /* ================= 部屋の出入り ================= */
 function stopLoops(){loops.forEach(clearInterval);loops=[]}
 async function openNet(code){
-  const r=await roomP;if(!r)return null;
-  const n=await r.join('g-'+code);
+  const r=await roomP;netErr='';
+  let n=null;
+  if(r){try{n=await r.join('g-'+code)}catch(e){netErr='Claudeの部屋機能に入れません'}}
+  const inClaude=typeof claude!=='undefined'&&claude&&claude.use;
+  if(inClaude&&!r)netErr='Claudeの部屋機能が使えません(この表示のままでは友だちと遊べません)';
+  if(!n){try{n=await mqttOnly.join('g-'+code)}catch(e){n=null}}
+  if(!n&&inClaude)netErr=(netErr?netErr+' / ':'')+'Claude上のページは外部通信が制限されます。GitHub Pagesなどに置いて開いてください';
+  if(!n)return null;
   n.on('state',onState);n.on('act',onAct);
   return n;
 }
@@ -502,15 +565,13 @@ async function hostCreate(solo){
   me.name=cleanName($('#name').value);store('name',me.name);
   isHost=true;screen='game';
   const code=genCode();
-  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],laps:1,secs:45,clapOn:0,gs:Object.keys(GENRES),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
+  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
   H={texts:{},claps:{},subs:[],timers:[],order:[]};
   if(solo){addBot();addBot();addBot()}
   startLoops();pub();
-  if(roomOK!==false){
-    netBusy=true;render();
-    try{net=await openNet(code);if(net)emitState()}catch(e){net=null}
-    netBusy=false;
-  }
+  netBusy=true;render();
+  try{net=await openNet(code);if(net)emitState()}catch(e){net=null}
+  netBusy=false;
   if(!net&&!solo)toast('オンラインに接続できないため、ボット戦だけ遊べます');
   render();
 }
@@ -523,10 +584,9 @@ async function joinRoom(){
   const code=($('#code').value||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   if(code.length<4){toast('4文字のコードを入れてね');return}
   me.name=cleanName($('#name').value);store('name',me.name);
-  const r=await roomP;
-  if(!r){toast('この画面ではオンラインに接続できません');return}
   isHost=false;S=null;screen='joining';render();
-  try{net=await openNet(code)}catch(e){toast('部屋に入れませんでした');leave();return}
+  try{net=await openNet(code)}catch(e){net=null}
+  if(!net){toast('オンラインに接続できませんでした'+(netErr?'('+netErr+')':''));leave();return}
   const t0=Date.now();
   stopLoops();
   loops.push(setInterval(()=>{
@@ -589,10 +649,10 @@ function syncLocal(){
   }
 }
 function doSubmit(){
-  if(L.submitted||!L.line.length)return;
-  const text=L.line.map(cardText).join('');
+  if(L.submitted||L.line.length<(S.minC||1))return;
+  const text=L.line.map(cardText).join(''), n=L.line.length;
   L.myText=text;L.submitted=true;L.line=[];L.sel=-1;
-  reliable('submit',{text},()=>S.submitted.includes(me.pid)||S.phase!=='write');
+  reliable('submit',{text,n},()=>S.submitted.includes(me.pid)||S.phase!=='write');
   render();
 }
 
@@ -651,21 +711,24 @@ function lobby(){
   const host=isHost, n=S.players.length;
   return `${head()}
   <section class="panel">
-    <p class="note">${net?'友だちにこのページを開いてもらい、ホーム画面でコードを入れてもらいます':(netBusy?'オンラインに接続しています…':'オンライン未接続(ボット戦のみ)')}</p>
+    <p class="note">${net?'友だちにこのページを開いてもらい、ホーム画面でコードを入れてもらいます':(netBusy?'オンラインに接続しています…(最大20秒)':'オンライン未接続(ボット戦のみ)'+(netErr?' — '+esc(netErr):''))}</p>
     <div class="code" aria-label="部屋コード">${esc(S.code.toUpperCase())}</div>
   </section>
   <section class="panel">
     <h2>参加者 ${n}/${MAXP}</h2>
     <ul class="plist">${S.players.map(p=>`<li><span>${esc(p.name)}${p.pid===S.hostPid?' (ホスト)':''}${p.bot?' (ボット)':''}${p.pid===me.pid?' ←あなた':''}</span>${host&&p.pid!==S.hostPid?`<button class="x" data-a="rm" data-pid="${esc(p.pid)}" aria-label="${esc(p.name)}を外す">×</button>`:''}</li>`).join('')}</ul>
+    ${host&&!net&&!netBusy?`<button class="btn ghost sm" data-a="retry">もう一度接続する</button>`:''}
     ${host?`<button class="btn ghost sm" data-a="addbot" ${n>=MAXP?'disabled':''}>ボットを追加</button>`:''}
   </section>
   <section class="panel">
     <div class="seg"><span>周回</span>${[1,2,3].map(v=>`<button class="${S.laps===v?'on':''}" ${host?`data-a="laps" data-v="${v}"`:'disabled'}>${v}周</button>`).join('')}</div>
+    <div class="seg"><span>最低枚数</span>${[1,2,3,4,5,6].map(v=>`<button class="${(S.minC||1)===v?'on':''}" ${host?`data-a="minc" data-v="${v}"`:'disabled'}>${v}枚</button>`).join('')}</div>
+    <p class="note">文章を出すとき、カードを${S.minC||1}枚以上つなげる必要があります。</p>
     <div class="seg"><span>制限時間</span>${[30,45,60,90].map(v=>`<button class="${S.secs===v?'on':''}" ${host?`data-a="secs" data-v="${v}"`:'disabled'}>${v}秒</button>`).join('')}</div>
     <div class="seg"><span>お題の<br>ジャンル</span>${Object.entries(GENRES).map(([k,g])=>`<button class="${S.gs.includes(k)?'on':''}" ${host?`data-a="gen" data-v="${k}"`:'disabled'}>${esc(g.name)}</button>`).join('')}</div>
     <p class="note">${PROMPTS.filter(p=>S.gs.includes(p[0])).length}個のお題から出ます。${host?'タップで選ぶ・外す(1つは残ります)':''}</p>
     <div class="seg"><span>ウケた点</span>${[[0,'なし'],[1,'あり(+1点)']].map(([v,l])=>`<button class="${S.clapOn===v?'on':''}" ${host?`data-a="clapopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
-    <p class="note">${S.clapOn?'聞き手が選んだ作品に2点。ほかの人が押す「ウケた」が一番多い作品にも1点。':'聞き手が選んだ作品だけに2点。'}</p>
+    <p class="note">${S.clapOn?'全員が「ウケた」を押してから、聞き手が1つ選びます。聞き手が選んだ作品に2点、「ウケた」が一番多い作品にも1点。':'聞き手が選んだ作品だけに2点。'}</p>
     <p class="note">全${n*S.laps}ラウンド(全員が${S.laps}回ずつ聞き手)</p>
     ${host?`<button class="btn" data-a="start" ${n<3?'disabled':''}>${n<3?`あと${3-n}人で始められます`:'ゲーム開始'}</button>`:'<p>ホストが始めるのを待っています…</p>'}
   </section>`;
@@ -707,7 +770,7 @@ function write(){
     ${cutRow}
     <p class="note">並べたカードを選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
-    <button class="btn" data-a="submit" ${L.line.length?'':'disabled'}>これでいく!</button>
+    <button class="btn" data-a="submit" ${L.line.length>=(S.minC||1)?'':'disabled'}>${L.line.length>=(S.minC||1)?'これでいく!':`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>
     <div class="ctl"><button class="btn ghost sm" data-a="swap" ${L.swaps>0?'':'disabled'}>手札を引き直す(このラウンドあと${L.swaps}回)</button></div>`;
   }
   return h+strip()+hostCtl();
@@ -715,18 +778,19 @@ function write(){
 function judge(){
   const isP=S.parent===me.pid, subs=S.subs||[];
   if(S.ns&&!S.subs)return head()+promptHTML()+`<p class="lead">作品を受け取っています…</p>`+strip()+hostCtl();
-  const clapped=S.clapped.includes(me.pid);
+  const clapped=S.clapped.includes(me.pid), ready=clapReady();
   let h=head()+promptHTML();
-  h+=`<p class="lead">${isP?'声に出して読んで、いちばん気に入った作品を選ぼう。選んだ作品に2点が入ります。':(S.clapOn?'聞き手が読み上げて選びます。ウケた作品に「ウケた」を1回だけ押せます。':'聞き手が読み上げて、いちばん良い作品に点をあげます。')}</p>`;
+  h+=`<p class="lead">${isP?(S.clapOn?'声に出して読もう。みんなが「ウケた」を押したら、いちばん気に入った作品を選べます。選んだ作品に2点が入ります。':'声に出して読んで、いちばん気に入った作品を選ぼう。選んだ作品に2点が入ります。'):(S.clapOn?'聞き手が読み上げて選びます。ウケた作品に「ウケた」を1回だけ押せます。':'聞き手が読み上げて、いちばん良い作品に点をあげます。')}</p>`;
   h+=`<div class="subs">${subs.map(([sid,text])=>{
     const mine=L.myText&&text===L.myText;
     const cls=`sub n${sid%5}${mine?' mine':''}${isP&&L.pickSel===sid?' sel':''}`;
-    if(isP)return `<button class="${cls}" data-a="psel" data-sid="${sid}"><p>${esc(text)}</p></button>`;
+    if(isP)return `<button class="${cls}" data-a="psel" data-sid="${sid}" ${ready?'':'disabled'}><p>${esc(text)}</p></button>`;
     if(!S.clapOn)return `<article class="${cls}"><p>${esc(text)}</p></article>`;
     return `<article class="${cls}"><p>${esc(text)}</p><button class="clap${L.clap===sid?' on':''}" data-a="clap" data-sid="${sid}" ${clapped||mine?'disabled':''}>${L.clap===sid?'ウケた済み':'ウケた'}</button></article>`;
   }).join('')}</div>`;
-  if(isP)h+=`<button class="btn" data-a="pick" ${L.pickSel===null?'disabled':''}>これに決めた</button>`;
-  else h+=`<p class="note">${S.clapOn?`ウケた ${S.clapped.length} / ${S.players.length-1}人 ・ `:''}聞き手が選んでいます</p>`;
+  if(isP){const need=(S.cneed||[]).filter(pid=>pl(pid)), got=need.filter(pid=>S.clapped.includes(pid)).length;
+    h+=ready?`<button class="btn" data-a="pick" ${L.pickSel===null?'disabled':''}>これに決めた</button>`:`<p class="note">みんなが「ウケた」を押すのを待っています(${got} / ${need.length}人)。そろったら選べます。</p><button class="btn" disabled>全員のウケた待ち</button>`}
+  else h+=`<p class="note">${S.clapOn?`ウケた ${(S.cneed||[]).filter(pid=>S.clapped.includes(pid)).length} / ${(S.cneed||[]).filter(pid=>pl(pid)).length}人 ・ ${ready?'聞き手が選んでいます':(clapped?'ほかの人を待っています':'気に入った作品に「ウケた」を押そう')}`:'聞き手が選んでいます'}</p>`;
   return h+strip()+hostCtl();
 }
 function result(){
@@ -766,7 +830,7 @@ function tick(){
   tm.textContent=Math.ceil(left/1000);
   bar.style.width=Math.min(100,left/(S.secs*1000)*100)+'%';
   box.classList.toggle('low',left<=10000);
-  if(left<=0&&!L.submitted&&L.line.length&&S.parent!==me.pid)doSubmit();
+  if(left<=0&&!L.submitted&&L.line.length>=(S.minC||1)&&S.parent!==me.pid)doSubmit();
 }
 setInterval(tick,250);
 
@@ -778,10 +842,12 @@ document.addEventListener('click',e=>{
     case 'create':hostCreate(false);break;
     case 'solo':hostCreate(true);break;
     case 'join':joinRoom();break;
+    case 'retry':if(isHost&&S&&!net&&!netBusy){netBusy=true;render();openNet(S.code).then(n=>{net=n;netBusy=false;if(net)emitState();else toast('まだつながりません');render()}).catch(()=>{netBusy=false;render()})}break;
     case 'leave':leave();break;
     case 'addbot':if(isHost){addBot();pub()}break;
     case 'rm':if(isHost&&S.phase==='lobby'&&d.pid!==S.hostPid){S.players=S.players.filter(p=>p.pid!==d.pid);pub()}break;
     case 'laps':if(isHost){S.laps=+d.v;pub()}break;
+    case 'minc':if(isHost&&S.phase==='lobby'&&[1,2,3,4,5,6].includes(+d.v)){S.minC=+d.v;pub()}break;
     case 'secs':if(isHost){S.secs=+d.v;pub()}break;
     case 'gen':if(isHost&&S.phase==='lobby'){const i=S.gs.indexOf(d.v);if(i>=0){if(S.gs.length>1)S.gs.splice(i,1)}else S.gs.push(d.v);pub()}break;
     case 'clapopt':if(isHost&&S.phase==='lobby'){S.clapOn=+d.v;pub()}break;
@@ -804,8 +870,8 @@ document.addEventListener('click',e=>{
     case 'ptset':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.opts){if(d.v==='none')c.on=false;else{c.pt=d.v;c.on=true}}render();break}
     case 'ptog':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.pt){c.on=!c.on}render();break}
     case 'submit':doSubmit();break;
-    case 'psel':L.pickSel=+d.sid;render();break;
-    case 'pick':if(L.pickSel!==null)reliable('pick',{sid:L.pickSel},()=>S.phase!=='judge');break;
+    case 'psel':if(clapReady()){L.pickSel=+d.sid;render()}break;
+    case 'pick':if(L.pickSel!==null&&clapReady())reliable('pick',{sid:L.pickSel},()=>S.phase!=='judge');break;
     case 'clap':{const sid=+d.sid;if(L.clap===null){L.clap=sid;reliable('clap',{sid},()=>S.clapped.includes(me.pid)||S.phase!=='judge');render()}break}
   }
 });
