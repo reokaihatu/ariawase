@@ -643,7 +643,8 @@ function handleAct(a){
       const m={id:H.chatN,pid:a.pid,name:p.name,text};H.chat.push(m);H.chat=H.chat.slice(-40);
       chatMerge(S.code,[m]);emitChat();break}
     case 'submit':{
-      const text=String(a.text||'').slice(0,200), cn=+a.n||0;
+      let text=String(a.text||'').slice(0,200); const cn=+a.n||0;
+      if(text&&ngHit(text))text='(配信向けではない表現のため伏せられました)';
       if(S.phase==='write'&&p&&a.pid!==S.parent&&text&&(cn>=(S.minC||1)||!Number.isFinite(+a.n))&&!(a.pid in H.texts)){H.texts[a.pid]=text;S.submitted.push(a.pid);pub();hostTick()}
       break}
     case 'clap':
@@ -833,6 +834,12 @@ const baseCards=()=>BASE.map(b=>Object.assign({id:++cid,t:b.t,k:b.k,base:1},b.pt
 const chars=c=>Array.from(c.t);
 const cardBody=c=>{const a=chars(c);return a.slice(c.h||0,a.length-(c.tl||0)).join('')};
 const cardText=c=>cardBody(c)+(c.pt&&c.on?c.pt:'');
+/* 配信向けNG: 言葉を削ったりつなげたりしてできた文章に、直接的な性的表現が含まれていたら出せない */
+const NG=W('ちんこ ちんぽ ちんぽこ ちんちん ちんげ まんこ おまんこ ぱいぱん ふぇら ふぇらちお まんずり おなにー しこしこ せっくす なかだし ぱいずり ざーめん ちくび きんたま ぼっき しゃせい せいえき 陰茎 陰毛 陰核 陰部 膣 射精 勃起 精液 精子 性器 性行為 乳首 乳輪 局部 強姦 レイプ 売春 援交');
+const ngNorm=t=>String(t).normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s　ー・、。,.!?…「」『』()~〜_-]/g,'');
+const ngNoP=t=>t.replace(/[をがはにでのともへ]/g,'');
+const NGN=NG.map(ngNorm);
+const ngHit=text=>{const n=ngNorm(text),m=ngNoP(n);return NGN.some(x=>n.includes(x)||(ngNoP(x).length>=3&&m.includes(ngNoP(x))))};
 const roundGenre=()=>((PROMPTS[S.pi]||[])[0]);
 function syncLocal(){
   if(!S)return;
@@ -849,6 +856,7 @@ function syncLocal(){
 function doSubmit(){
   if(L.submitted||L.line.length<(S.minC||1))return;
   const text=L.line.map(cardText).join(''), n=L.line.length;
+  if(ngHit(text)){toast('配信向けではない表現が含まれているので出せません');return}
   L.myText=text;L.submitted=true;L.line=[];L.sel=-1;
   reliable('submit',{text,n},()=>S.submitted.includes(me.pid)||S.phase!=='write');
   render();
@@ -956,6 +964,7 @@ function write(){
   }else{
     const inLine=new Set(L.line.map(c=>c.id));
     const avail=f=>L.hand.filter(c=>f(c)&&!inLine.has(c.id)).sort((x,y)=>KIND_ORDER.indexOf(x.k)-KIND_ORDER.indexOf(y.k));
+    const ngLine=L.line.length>0&&ngHit(L.line.map(cardText).join(''));
     const sc=L.sel>=0?L.line[L.sel]:null;
     const ptBtn=sc&&sc.pt&&!sc.opts?`<button class="btn ghost sm" data-a="ptog">「${esc(sc.pt)}」を${sc.on?'はずす':'つける'}</button>`:'';
     const ptRow=sc&&sc.opts?`<div class="ptrow" aria-label="助詞をえらぶ"><span>助詞</span>${sc.opts.map(o=>`<button class="${sc.on&&sc.pt===o?'on':''}" data-a="ptset" data-v="${o}">${o}</button>`).join('')}<button class="${sc.on?'':'on'}" data-a="ptset" data-v="none">なし</button></div>`:'';
@@ -981,7 +990,8 @@ function write(){
     ${cutRow}</div>
     <p class="note">並べたカードを選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
-    <button class="btn" data-a="submit" ${L.line.length>=(S.minC||1)?'':'disabled'}>${L.line.length>=(S.minC||1)?'これでいく!':`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
+    ${ngLine?'<p class="note" style="color:var(--bad,#e5484d);font-weight:700">配信向けではない表現になっています。言葉を変えてね</p>':''}
+    <button class="btn" data-a="submit" ${L.line.length>=(S.minC||1)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':L.line.length>=(S.minC||1)?'これでいく!':`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
   }
   return h+strip()+hostCtl();
 }
