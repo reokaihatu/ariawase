@@ -214,7 +214,7 @@ const SPEC={n:4,v:4,a:1,d:1,e:2};
 const PTS=['を','を','を','が','が','は','は','に','に','で','の','と','も','へ'];      // 名詞につく助詞
 const CORE_P=['を','に','が'];                                                      // 名詞のうち最低1枚はこの助詞
 const CORE_E=['だよ','です','ね','よ','!','?','……','かもしれない','はず','と思う','でしょ','じゃん','かな','ぞ'];
-const GROUPS=[['いつものカード(全員に毎回・助詞は変えられます)',c=>c.base],['名詞(助詞は外せます)',c=>!c.base&&c.k==='n'],['動詞',c=>!c.base&&c.k==='v'],['ようす(形容詞・副詞・ひとこと)',c=>c.k==='a'||c.k==='d'],['つなぎ(語尾など)',c=>!c.base&&c.k==='e']];
+const GROUPS=[['いつものカード(全員に毎回・削れません・助詞は変えられます)',c=>c.base],['名詞(助詞は外せます)',c=>!c.base&&c.k==='n'],['動詞',c=>!c.base&&c.k==='v'],['ようす(形容詞・副詞・ひとこと)',c=>c.k==='a'||c.k==='d'],['つなぎ(語尾など)',c=>!c.base&&c.k==='e']];
 // 全員に毎回配る汎用カード。名詞の助詞は下の候補から変えられる
 const BASE=[{t:'私',k:'n',pt:'は'},{t:'あなた',k:'n',pt:'に'},{t:'みんな',k:'n',pt:'が'},{t:'これ',k:'n',pt:'は'},{t:'する',k:'v'},{t:'です',k:'e'},{t:'います',k:'e',alts:['います','します']}];
 const PT_OPTS=['は','が','の','に','を','も','と','へ','で'];
@@ -256,7 +256,12 @@ const GENRES={
   n:W('月曜日 親友 隣の席 母 犬 靴下 財布 朝 深夜 雨 公園 駅 銭湯 温泉 海 山 屋上 体育館 保健室 職員室 給食 宿題 夏休み 文化祭 卒業式 席替え 傘 布団 スマホ リモコン 歯ブラシ ティッシュ マスク イヤホン 自転車 バス 新幹線 飛行機 タクシー コンビニ スーパー 図書館 美術館 動物園 水族館 遊園地 映画館 カラオケ 喫茶店 ホテル 神社 川 湖 森 星 月 太陽 雲 風 雪 枕 カーテン 窓 ドア 階段 地図 手紙 日記 写真 アルバム 通知表 テスト 先生 生徒 猫 ハト カメ 金魚 夢 趣味 旅行 休日 散歩 昼寝 筋肉 ダイエット 座右の銘 初恋 秘密 伝説 偶然'),
   v:W('寝る 走る 歩く 笑う 泣く 話す 聞く 見る 行く 来る 帰る 起きる 眠る 読む 書く 作る 使う 洗う 着る 脱ぐ 歌う 踊る 泳ぐ 飛ぶ 迷う 誘う 乗り換える 数える 拾う 借りる 返す 忘れる 信じる 振り向く 打ち明ける 見つける'),
   a:W('眠い 新しい 古い 高い 安い うれしい さびしい こわい かわいい かっこいい うるさい 静かな おいしい 重い 軽い 遅い 速い 広い 狭い 明るい 暗い 甘い 辛い 痛い 忙しい ひまな 元気な 不思議な 完璧な 最後の 最初の ふわふわの あやふやな'),
-  d:W('毎日 毎朝 夜中に 今夜 ずっと もう一回 一緒に 勝手に ふたりで みんなで なんとなく たしかに もちろん だって ほんとに ちゃんと のんびり ゆっくり そろそろ とりあえず 一応 結構 割と たぶん さっき 昨日 明日から おはよう ただいま はじめまして お疲れ様')}
+  d:W('毎日 毎朝 夜中に 今夜 ずっと もう一回 一緒に 勝手に ふたりで みんなで なんとなく たしかに もちろん だって ほんとに ちゃんと のんびり ゆっくり そろそろ とりあえず 一応 結構 割と たぶん さっき 昨日 明日から おはよう ただいま はじめまして お疲れ様')},
+ spicy:{name:'夜のギリギリ',off:1,
+  n:W('二人きり 密室 ホテル ベッド 枕 毛布 添い寝 膝枕 混浴 露天風呂 お風呂 バスタオル 浴衣 水着 鎖骨 うなじ 首筋 耳元 唇 指先 吐息 汗 湯気 腰 太もも 肩 マッサージ オイル 湿布 目隠し 手錠 ネクタイ ストロー バナナ ソーセージ きゅうり 練乳 生クリーム 牛乳 ヨーグルト 棒 穴 たこ焼き アイスキャンディー 朝帰り 朝チュン 終電 浮気 合コン 王様ゲーム 壁ドン 顎クイ 秘密の関係 ご褒美 お仕置き 罰ゲーム 保健室 先生 メイド 執事 ナース 夜の街 深夜 ネットカフェ カラオケ 個室 エレベーター 満員電車 密着 寝息 寝言 寝起き ひとり暮らし 合鍵 ラブレター 初デート 終わらない夜'),
+  v:W('脱ぐ 濡れる 揉む 吸う 舐める くわえる 挿す 入れる 出す 突く 擦る 絞る 振る 揺らす 縛る 焦らす 責める 攻める 迫る 誘う 抱く 押し倒す 見せる 触る 撫でる 握る 噛む 吹きかける 囁く 乱れる 汗ばむ 温める ほぐす 巻きつく 重なる 寝かせない 隠す 見つめる 見とれる ドキドキする 我慢する 白状する'),
+  a:W('熱い 濡れた 硬い 太い 長い 激しい 柔らかい 大きい 小さい 早い 遅い 気持ちいい きつい ゆるい 湿った 白い 生ぬるい 甘い いやらしい エッチな 禁断の 秘密の 夜の 朝までの 密着の ぎりぎりの 危ない はだけた 汗だくの 無防備な 魅惑の'),
+  d:W('朝まで 一晩中 夜中に こっそり ゆっくり 激しく 優しく そっと もっと 深く 強く 何度も 3回 一緒に ふたりで 今夜 ひとりで 内緒で じわじわ ぎりぎり 責任とって ダメ もうだめ やめて お願い いいよ もう一回 まだまだ 我慢できず 勢いで 無意識に')}
 };
 // 追加の言葉(ジャンル別・全体用)。既にある言葉は重ならないように混ぜる
 const EXTRA={
@@ -313,7 +318,7 @@ const DECK={
  e:W('だよ です じゃない かもしれない ね よ ! ? …… けど そして だから でも しかも もし なら ので として ばかり みたいな ほど なんて それとも んです らしい はず つもり と思う ことにした って言った でしょ だった じゃん かな ぞ わ かも みたい ようだ に違いない ところだ わけ')
 };
 // 全体プールにも各ジャンルの言葉を加える(重複は除く)
-['n','v','a','d'].forEach(k=>{DECK[k]=uniq(DECK[k].concat(...Object.values(GENRES).map(g=>g[k]),EXTRA.all[k]))});
+['n','v','a','d'].forEach(k=>{DECK[k]=uniq(DECK[k].concat(...Object.values(GENRES).filter(g=>!g.off).map(g=>g[k]),EXTRA.all[k]))});
 DECK.e=uniq(DECK.e.concat(EXTRA.all.e));
 const PROMPTS=[
 ['love','{P}へ、心からの感謝を伝える'],['love','{P}に、ひとめぼれしたと伝える'],['love','{P}の結婚式で、スピーチをする'],['love','{P}の誕生日に、お祝いの言葉を贈る'],
@@ -329,7 +334,11 @@ const PROMPTS=[
 ['gourmet','{P}に、おいしい料理をグルメレポートする'],['gourmet','{P}に、手料理をすすめる'],['gourmet','{P}に、新メニューを紹介する'],['gourmet','{P}に、好きな食べ物への愛を語る'],
 ['gourmet','{P}を、深夜のラーメンに誘う'],['gourmet','{P}に、レシピを説明する'],['gourmet','{P}に、お店のおすすめを教える'],
 ['daily','{P}を、旅行に誘う'],['daily','{P}に、誰にも言えない秘密を打ち明ける'],['daily','{P}に、道をたずねる'],['daily','{P}に、とっておきの趣味を布教する'],
-['daily','{P}に、座右の銘を教える'],['daily','{P}の第一印象を、本人に伝える'],['daily','{P}に、サプライズパーティーの注意事項を伝える'],['daily','{P}に、昨日見た夢を語る'],['daily','{P}に、将来の夢を語る']
+['daily','{P}に、座右の銘を教える'],['daily','{P}の第一印象を、本人に伝える'],['daily','{P}に、サプライズパーティーの注意事項を伝える'],['daily','{P}に、昨日見た夢を語る'],['daily','{P}に、将来の夢を語る'],
+['spicy','{P}を、夜のドライブに誘う'],['spicy','{P}と、密室のエレベーターで二人きりになった時の一言'],['spicy','マッサージ師として、{P}に施術内容を説明する'],['spicy','{P}に、混浴の注意事項を伝える'],
+['spicy','{P}に、浮気がバレた言い訳をする'],['spicy','王様ゲームで、{P}に命令する'],['spicy','保健の先生として、{P}に特別授業をする'],['spicy','{P}に、お風呂上がりの色っぽい一言を言う'],
+['spicy','初デートの帰り道、{P}にもう少し一緒にいたいと伝える'],['spicy','{P}に、深夜の電話でささやく'],['spicy','{P}に、夜のコンビニで買ったものの言い訳をする'],['spicy','{P}に、朝帰りの理由を説明する'],
+['spicy','{P}を、ホテルのルームサービスに案内する'],['spicy','{P}に、下ネタを言ってしまった言い訳をする'],['spicy','{P}に、モテる秘訣を教える'],['spicy','{P}の寝起きドッキリを、実況する']
 ];
 const BOTS=['ボット壱','ボット弐','ボット参','ボット四','ボット五','ボット六'];
 const MAXP=12;
@@ -754,7 +763,7 @@ async function hostCreate(solo){
   me.name=cleanName($('#name').value);store('name',me.name);
   isHost=true;screen='game';
   const code=genCode();
-  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
+  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
   H={texts:{},claps:{},subs:[],timers:[],order:[]};
   if(solo){addBot();addBot();addBot()}
   startLoops();pub();
@@ -881,8 +890,8 @@ function home(){
   </section>
   <details class="how"><summary>あそびかた</summary>
     <ol>
-      <li>ラウンドごとに「聞き手」が順番に決まり、お題が出ます。お題のジャンルは、ゲーム開始前にホストが選べます。</li>
-      <li>聞き手以外は、手札の言葉カードを並べて、お題への一言を作ります。全員に毎回「私」「あなた」「います」などのいつものカードが配られ、助詞や言い方は選び直せます。そこに、お題のジャンルに合う言葉が多めに配られます。名詞の助詞は使わなくてもOK。言葉は先頭や末尾を削って使えます。カードも全部使わなくてOK。</li>
+      <li>ラウンドごとに「聞き手」が順番に決まり、お題が出ます。お題のジャンルは、ゲーム開始前にホストが選べます(「夜のギリギリ」は配信向けの大人ネタで、最初はオフです)。</li>
+      <li>聞き手以外は、手札の言葉カードを並べて、お題への一言を作ります。全員に毎回「私」「あなた」「います」などのいつものカードが配られ、助詞や言い方は選び直せます。そこに、お題のジャンルに合う言葉が多めに配られます。名詞の助詞は使わなくてもOK。言葉は先頭や末尾を削って使えます(いつものカードは削れません)。カードも全部使わなくてOK。</li>
       <li>作品は名前を伏せて並びます。聞き手が一番好きなものを選ぶと、その作者に2点。(部屋の設定で「ウケた」の1点を足すこともできます)</li>
       <li>全員が聞き手を回し終わったら、いちばん点が多い人が勝ち。</li>
     </ol>
@@ -952,7 +961,7 @@ function write(){
     const ptRow=sc&&sc.opts?`<div class="ptrow" aria-label="助詞をえらぶ"><span>助詞</span>${sc.opts.map(o=>`<button class="${sc.on&&sc.pt===o?'on':''}" data-a="ptset" data-v="${o}">${o}</button>`).join('')}<button class="${sc.on?'':'on'}" data-a="ptset" data-v="none">なし</button></div>`:'';
     const altRow=sc&&sc.alts?`<div class="ptrow" aria-label="言い方をえらぶ"><span>言い方</span>${sc.alts.map(o=>`<button class="${sc.t===o?'on':''}" data-a="altset" data-v="${o}">${o}</button>`).join('')}</div>`:'';
     let cutRow='';
-    if(sc&&chars(sc).length>1){
+    if(sc&&!sc.base&&chars(sc).length>1){
       const a=chars(sc),ch=sc.h||0,ct=sc.tl||0,n=a.length;
       const prev=a.map((x,i)=>i<ch||i>=n-ct?`<s>${esc(x)}</s>`:esc(x)).join('');
       const b=(w,v,l,dis)=>`<button data-a="cut" data-w="${w}" data-v="${v}" ${dis?'disabled':''}>${l}</button>`;
@@ -970,7 +979,7 @@ function write(){
     ${ptRow}
     ${altRow}
     ${cutRow}</div>
-    <p class="note">並べたカードを選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
+    <p class="note">並べたカードを選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
     <button class="btn" data-a="submit" ${L.line.length>=(S.minC||1)?'':'disabled'}>${L.line.length>=(S.minC||1)?'これでいく!':`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
   }
@@ -1063,7 +1072,7 @@ document.addEventListener('click',e=>{
     case 'lright':if(L.sel>=0&&L.sel<L.line.length-1){const i=L.sel;[L.line[i+1],L.line[i]]=[L.line[i],L.line[i+1]];L.sel++}render();break;
     case 'lrm':if(L.line.length){const [r]=L.line.splice(L.sel>=0?L.sel:L.line.length-1,1);r.h=0;r.tl=0;if(r.alts)r.t=r.alts[0];L.sel=-1}render();break;
     case 'cut':{const c=L.sel>=0?L.line[L.sel]:null;
-      if(c){const n=chars(c).length,dv=+d.v;let h=c.h||0,t=c.tl||0;
+      if(c&&!c.base){const n=chars(c).length,dv=+d.v;let h=c.h||0,t=c.tl||0;
         if(d.w==='h')h+=dv;else t+=dv;
         if(h>=0&&t>=0&&h+t<=n-1){c.h=h;c.tl=t}}
       render();break}
