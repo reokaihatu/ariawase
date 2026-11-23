@@ -63,6 +63,11 @@ h1,h2,h3,p{margin:0}
 .cutrow>span{font-size:12px;color:var(--mute)}
 .cutrow .cutprev{font-family:var(--f-serif);font-weight:800;font-size:22px;color:var(--ink);margin-right:6px}
 .cutrow .cutprev s{color:var(--pink);opacity:.6}
+.cutrow .cutmode{flex:1 1 100%;display:flex;gap:5px;align-items:center}
+.cutrow .cutmode button.on{background:var(--sun);color:var(--paper-ink);border-color:var(--sun)}
+.cutrow .cutin{flex:1 1 100%;min-width:0;background:var(--bg);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:6px 10px;font:800 18px var(--f-serif);outline:none}
+.cutrow .cutin:focus{border-color:var(--sun)}
+.cutrow .cuthint{flex:1 1 100%;font-size:11px}
 .cutrow button{min-height:38px;background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:2px 12px;font-weight:700;font-size:14px}
 .cutrow button[disabled]{opacity:.35}
 .ptrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -1272,7 +1277,7 @@ function write(){
       const a=chars(sc),ch=sc.h||0,ct=sc.tl||0,n=a.length;
       const prev=a.map((x,i)=>i<ch||i>=n-ct?`<s>${esc(x)}</s>`:esc(x)).join('');
       const b=(w,v,l,dis)=>`<button data-a="cut" data-w="${w}" data-v="${v}" ${dis?'disabled':''}>${l}</button>`;
-      cutRow=`<div class="cutrow" aria-label="言葉をカット"><span class="cutprev">${prev}</span><span>先頭</span>${b('h',1,'削る',ch+ct>=n-1)}${b('h',-1,'戻す',ch<=0)}<span>末尾</span>${b('t',1,'削る',ch+ct>=n-1)}${b('t',-1,'戻す',ct<=0)}</div>`;
+      cutRow=`<div class="cutrow" aria-label="言葉をカット"><div class="cutmode" role="group" aria-label="削り方"><span>削り方</span><button class="${CUTKB?'':'on'}" data-a="cutmode" data-v="btn">ボタン</button><button class="${CUTKB?'on':''}" data-a="cutmode" data-v="kb">キーボード</button></div>${CUTKB?`<input id="cutin" class="cutin" value="${esc(cardBody(sc))}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="キーボードで削る(消した文字だけ打ち直せます)"><span class="cuthint">削除キーで先頭か末尾から消せます。消した文字だけ打ち直せます</span>`:''}<span class="cutprev">${prev}</span>${CUTKB?'':`<span>先頭</span>${b('h',1,'削る',ch+ct>=n-1)}${b('h',-1,'戻す',ch<=0)}<span>末尾</span>${b('t',1,'削る',ch+ct>=n-1)}${b('t',-1,'戻す',ct<=0)}`}</div>`;
     }
     const pp=pl(S.parent), mini=esc(pText()).replace(/\{P\}/g,`<mark>${esc(pp?pp.name:'?')}</mark>`);
     h+=`<div class="bench" id="bench">${timerH}<div class="mini"><b>お題</b> ${mini}</div>
@@ -1286,7 +1291,7 @@ function write(){
     ${ptRow}
     ${altRow}
     ${cutRow}</div>
-    <p class="note">並べたカードはつかんで動かすと順番を入れ替えられます。選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
+    <p class="note">並べたカードはつかんで動かすと順番を入れ替えられます。選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったり(ボタン/キーボードを選べます)できます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
     ${ngLine?'<p class="note" style="color:var(--bad,#e5484d);font-weight:700">配信向けではない表現になっています。言葉を変えてね</p>':''}
     <button class="btn" data-a="submit" ${needOK(L.line.length)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':needOK(L.line.length)?'これでいく!':S.exact?(L.line.length<S.exact?`あと${S.exact-L.line.length}枚(ちょうど${S.exact}枚)`:`${L.line.length-S.exact}枚多いよ(ちょうど${S.exact}枚)`):`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
@@ -1345,7 +1350,9 @@ function view(){
 function render(){
   if(DRAG&&DRAG.on){DRAG.late=1;return}   // つかんで動かしている間は、画面を作り直さない
   const bi=$('#bringin'),keep=bi?{v:bi.value,f:document.activeElement===bi,s:bi.selectionStart}:null;   // 入力中のお題は消さない
+  const ci=$('#cutin'),ckeep=ci&&document.activeElement===ci?{s:ci.selectionStart}:null;
   $('#app').innerHTML=view();
+  if(ckeep){const n=$('#cutin');if(n){n.focus();try{const k=Math.min(ckeep.s,n.value.length);n.setSelectionRange(k,k)}catch(e){}}}
   if(keep){const n=$('#bringin');if(n){n.value=keep.v;if(keep.f){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}}
   tick();
   chatSync();
@@ -1402,6 +1409,7 @@ document.addEventListener('click',e=>{
         if(d.w==='h')h+=dv;else t+=dv;
         if(h>=0&&t>=0&&h+t<=n-1){c.h=h;c.tl=t}}
       render();break}
+    case 'cutmode':CUTKB=d.v==='kb';try{localStorage.setItem('aw_cutmode',CUTKB?'kb':'btn')}catch(e){}render();break;
     case 'altset':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.alts&&c.alts.includes(d.v)){c.t=d.v;c.h=0;c.tl=0}render();break}
     case 'ptset':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.opts){if(d.v==='none')c.on=false;else{c.pt=d.v;c.on=true}}render();break}
     case 'ptog':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.pt){c.on=!c.on}render();break}
@@ -1413,6 +1421,7 @@ document.addEventListener('click',e=>{
 });
 /* 並べたカードをつかんで動かして、順番を入れ替える(スマホはドラッグ、PCはマウスでつかんで移動) */
 let DRAG=null,DRAGSUP=false;
+let CUTKB=false;try{CUTKB=localStorage.getItem('aw_cutmode')==='kb'}catch(e){}
 document.addEventListener('pointerdown',e=>{
   const el=e.target.closest&&e.target.closest('.line [data-a="lsel"]');
   if(!el||(e.pointerType==='mouse'&&e.button!==0))return;
@@ -1451,6 +1460,19 @@ document.addEventListener('pointerup',dragEnd);
 document.addEventListener('pointercancel',dragEnd);
 document.addEventListener('click',e=>{if(DRAGSUP){e.stopImmediatePropagation();e.preventDefault();DRAGSUP=false}},true);
 document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('.line [data-a="lsel"]'))e.preventDefault()});
+/* キーボードで削る: 元のカードの文字の「連続した一部」になっているときだけ受け付ける(先頭・末尾から消す/消した文字を打ち直す) */
+function cutTyped(inp){
+  const c=L.sel>=0?L.line[L.sel]:null;if(!c||c.base)return;
+  const a=chars(c),n=a.length,v=Array.from(inp.value.normalize('NFC')),m=v.length,cur=c.h||0;
+  let best=-1;
+  if(m>=1&&m<=n)for(let i=0;i+m<=n;i++){if(a.slice(i,i+m).join('')===v.join('')&&(best<0||Math.abs(i-cur)<Math.abs(best-cur)))best=i}
+  if(best>=0){c.h=best;c.tl=n-best-m}
+  else toast(m<1?'1文字は残してね':'先頭か末尾から消すだけです。消した文字だけ打ち直せます');
+  render();
+}
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.id==='cutin'&&!e.isComposing)cutTyped(t)});
+document.addEventListener('compositionend',e=>{const t=e.target;if(t&&t.id==='cutin')setTimeout(()=>{if($('#cutin')===t)cutTyped(t)},0)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='cutin'){e.preventDefault();e.target.blur()}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='bringin'){e.preventDefault();bringAdd()}});
 render();
 /* 起動時: ホストなら直前の状態から再開、参加者なら直前の部屋へ自動で入り直す(ページの読み込み直しや、タブが落ちたとき用) */
