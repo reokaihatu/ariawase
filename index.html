@@ -311,6 +311,14 @@ const EXTRA={
 };
 const uniq=a=>Array.from(new Set(a));
 Object.keys(GENRES).forEach(g=>{const x=EXTRA[g];if(!x)return;['n','v','a','d'].forEach(k=>{GENRES[g][k]=uniq(GENRES[g][k].concat(x[k]||[]))})});
+// 「必ず1枚」: このジャンルのお題には、文を作る土台になる言葉(下のプール)から名詞が必ず1枚配られる。
+// 文を作りやすいジャンル(恋・言い訳・仕事・ニュース・日常・夜のギリギリ)は設定しない
+const FOOD=W('納豆 牛丼 卵 焼きそば カレー ラーメン 寿司 だんご トマト たこ焼き ハンバーグ ドーナツ 味噌汁 おにぎり たまご焼き 唐揚げ 餃子 焼肉 ピザ パスタ うどん そば カツ丼 プリン アイス チョコ せんべい 梅干し ふりかけ 味付け海苔 ケーキ 鍋 天ぷら とんかつ ステーキ サラダ スープ パン お弁当 駅弁 キムチ ご飯 お米 焼き鳥 うなぎ オムライス グラタン シチュー 親子丼 天丼 たい焼き 大福 クッキー パンケーキ クレープ かき氷 ソフトクリーム 肉まん 豚汁 お好み焼き もんじゃ すき焼き しゃぶしゃぶ 刺身 漬物 玉ねぎ にんじん じゃがいも キャベツ 白菜 ねぎ 豚肉 鶏肉 牛肉 豆腐 チーズ 明太子 いくら 鮭 マグロ えび 大根 ナス きのこ');
+const FANTASY_N=W('魔王 勇者 魔女 ドラゴン スライム 宇宙人 ロボット ゾンビ 妖精 神様 悪魔 天使 王様 姫 騎士 武士 忍者 幽霊 魔法 剣 盾 宝箱 水晶玉 宝物 聖剣 呪文 魔法陣 杖 エルフ ドワーフ 吸血鬼 精霊 巨人 魔物 化け物 竜 タイムマシン');
+GENRES.gourmet.n=uniq(GENRES.gourmet.n.concat(FOOD));
+GENRES.gourmet.must={n:FOOD,note:'食材か料理の名前が必ず1枚'};
+GENRES.fantasy.n=uniq(GENRES.fantasy.n.concat(FANTASY_N));
+GENRES.fantasy.must={n:FANTASY_N,note:'登場人物・モンスター・道具の名前が必ず1枚'};
 // ジャンルに関係のない言葉(ちょっとズレる面白さ用)も混ぜるための全体プール
 const DECK={
  n:W('冷蔵庫 納豆 宇宙 校長先生 満員電車 母 犬 牛丼 財布 靴下 暗号 地球 魔王 勇者 賞味期限 領収書 有給 会議 残業 既読 未読 圏外 充電 5% ダイエット 卵 焼きそば カレー ラーメン 寿司 筋肉 鼻毛 おでこ へそ 足の小指 背中 指紋 初恋 嘘 本気 秘密 伝説 奇跡 運命 偶然 伏線 黒歴史 推し 課金 ガチャ 爆死 限定 完売 返品 在庫 値上げ 無料 税込 ポイント 福袋 割り勘 遅刻 寝坊 二度寝 夢 満月 台風 雷 虹 砂漠 銭湯 温泉 踏切 エレベーター 屋上 体育館 保健室 職員室 給食 宿題 席替え だんご ペンギン トマト ピアノ ロケット ゾウ たこ焼き 消しゴム ハンバーグ ドーナツ サボテン ブランコ おみくじ 味噌汁 コタツ 自販機 ほくろ あくび しゃっくり ため息 寝言 武士 忍者 探偵 社長 店長 幽霊 赤ちゃん おじいちゃん リモコン 電卓 ハンコ 名刺 ゴミ箱 洗濯機 掃除機 炊飯器 電子レンジ 歯ブラシ ティッシュ 時刻表 屋根裏 地下室 サブスク パスワード バグ スクショ スタンプ'),
@@ -834,6 +842,7 @@ function makeHand(genre){
   const forced={n:2,v:2,a:0,d:0,e:0}, prob={n:.5,v:.5,a:.7,d:.6,e:0};
   KIND_ORDER.forEach(k=>{
     for(let i=0;i<SPEC[k];i++){
+      if(i===0&&G&&G.must&&G.must[k]){hand.push(draw(k,hand,G.must[k]));continue}   // 必ず1枚
       const useG=G&&G[k]&&(i<forced[k]||Math.random()<prob[k]);
       hand.push(draw(k,hand,useG?G[k]:null));
     }
@@ -941,6 +950,7 @@ function listView(){
     <p class="note">ゲーム開始前だけ見られます。<mark>聞き手</mark>の部分には、そのラウンドの聞き手の名前が入ります。</p>
     <div class="seg">${gk.map(k=>`<button class="${k===g?'on':''}" data-a="qtab" data-v="${k}">${esc(GENRES[k].name)}</button>`).join('')}</div>
     <p class="note">${esc(GENRES[g].name)}:${ps.length}個${S.gs.includes(g)?'':'(いまはオフ)'}</p>
+    ${GENRES[g].must?`<p class="note">このジャンルでは、${esc(GENRES[g].must.note)}配られます。</p>`:''}
     <ol class="qli">${ps.map(p=>`<li>${esc(p[1]).replace('{P}','<mark>聞き手</mark>')}</li>`).join('')}</ol>
     <button class="btn" data-a="qback">もどる</button>
   </section>`;
