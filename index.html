@@ -194,12 +194,20 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 #chatform button{border:0;border-radius:12px;background:var(--sun);color:var(--paper-ink);font-weight:900;padding:0 18px}
 #bgmbtn{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;border:2px solid var(--line);background:var(--panel);font-size:22px;box-shadow:0 6px 16px rgba(0,0,0,.45);z-index:20;padding:0}
 #bgmbtn.on{border-color:var(--mint)}
+#volbtn{position:fixed;left:calc(max(14px,env(safe-area-inset-left)) + 60px);bottom:calc(max(14px,env(safe-area-inset-bottom)) + 6px);width:40px;height:40px;border-radius:50%;border:2px solid var(--line);background:var(--panel);font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.45);z-index:20;padding:0}
+#volpanel{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:calc(max(14px,env(safe-area-inset-bottom)) + 62px);z-index:21;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 14px 12px;box-shadow:0 8px 22px rgba(0,0,0,.55);width:min(260px,calc(100vw - 28px));font-size:14px}
+#volpanel[hidden]{display:none}
+#volpanel label{display:flex;justify-content:space-between;margin-bottom:6px;color:var(--mute)}
+#volpanel b{color:var(--sun)}
+#volrange{width:100%;height:32px;accent-color:var(--mint);margin:0}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <button id="bgmbtn" type="button" aria-label="BGMを鳴らす" aria-pressed="false">🔇</button>
+<button id="volbtn" type="button" aria-label="BGMの音量" aria-expanded="false">🎚</button>
+<div id="volpanel" hidden><label for="volrange">BGMの音量 <b id="vollabel">70%</b></label><input id="volrange" type="range" min="0" max="100" step="1" value="70" aria-label="BGMの音量"></div>
 <button id="chatbtn" type="button" aria-label="チャットを開く" hidden>💬<b id="chatbadge" hidden></b></button>
 <section id="chatbox" aria-label="チャット" hidden>
   <header><span>チャット</span><button id="chatx" type="button">とじる</button></header>
@@ -529,6 +537,8 @@ const BGM=(()=>{
               [41,[60,65,69],[77,0,81,77,84,81,77,0]],[43,[59,62,67],[79,0,83,79,74,79,83,0]],[48,[60,64,67],[79,0,76,79,81,79,76,0]],[45,[60,64,69],[81,0,84,81,76,81,84,0]],
               [41,[60,65,69],[77,0,81,77,84,81,77,0]],[43,[59,62,67],[79,0,83,79,74,79,83,0]],[48,[60,64,67],[84,0,79,84,83,0,79,0]],[48,[60,64,67],[84,0,84,79,76,79,84,0]]];
   let ac=null,master=null,bus=null,an=null,noise=null,timer=null,next=0,nb=0,on=false;
+  let vol=70;   // 0〜100。70が従来の音量
+  const tgt=()=>.53*Math.pow(vol/100,2);
   const hz=m=>440*Math.pow(2,(m-69)/12);
   function tone(m,t,dur,vel,type,cut,dec){
     const o=ac.createOscillator(),g=ac.createGain(),f=ac.createBiquadFilter();
@@ -590,7 +600,7 @@ const BGM=(()=>{
     }
     on=true;newBus();nb=0;
     ac.resume&&ac.resume();
-    master.gain.cancelScheduledValues(ac.currentTime);master.gain.setValueAtTime(master.gain.value,ac.currentTime);master.gain.linearRampToValueAtTime(.26,ac.currentTime+1.5);
+    master.gain.cancelScheduledValues(ac.currentTime);master.gain.setValueAtTime(master.gain.value,ac.currentTime);master.gain.linearRampToValueAtTime(tgt(),ac.currentTime+1.5);
     clearInterval(timer);timer=setInterval(pump,100);pump();
     return true;
   }
@@ -606,7 +616,11 @@ const BGM=(()=>{
     if(document.hidden){clearInterval(timer);try{bus.disconnect()}catch(e){}ac.suspend&&ac.suspend()}
     else{ac.resume&&ac.resume();newBus();clearInterval(timer);timer=setInterval(pump,100);pump()}
   });
-  return {start,stop,level,isOn:()=>on};
+  function setVol(v){
+    vol=Math.max(0,Math.min(100,Math.round(+v||0)));
+    if(ac&&master&&on){const t=ac.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(tgt(),t+.08)}
+  }
+  return {start,stop,level,isOn:()=>on,setVol,getVol:()=>vol};
 })();
 window.__bgm=BGM;
 (function(){
@@ -619,6 +633,15 @@ window.__bgm=BGM;
   // 前回オンにしていたら、最初の操作で自動的に再開する(スマホは操作がないと音を出せない)
   if(want)document.addEventListener('pointerdown',function f(e){if(e.target.closest&&e.target.closest('#bgmbtn'))return;document.removeEventListener('pointerdown',f);if(want&&!BGM.isOn()){BGM.start();draw()}});
   draw();
+  // 音量(0〜100)。記憶しておく
+  const vb=$('#volbtn'),vp=$('#volpanel'),vr=$('#volrange'),vl=$('#vollabel');
+  let v0=70;try{const x=localStorage.getItem('aw_bgm_vol');if(x!==null&&x!==''&&!isNaN(+x))v0=Math.max(0,Math.min(100,+x))}catch(e){}
+  BGM.setVol(v0);
+  const showVol=()=>{vr.value=BGM.getVol();vl.textContent=BGM.getVol()+'%';vb.textContent=BGM.getVol()===0?'🔈':'🎚'};
+  showVol();
+  vr.addEventListener('input',()=>{BGM.setVol(vr.value);showVol();try{localStorage.setItem('aw_bgm_vol',String(BGM.getVol()))}catch(e){}});
+  vb.addEventListener('click',e=>{e.stopPropagation();vp.hidden=!vp.hidden;vb.setAttribute('aria-expanded',vp.hidden?'false':'true')});
+  document.addEventListener('pointerdown',e=>{if(vp.hidden)return;if(e.target.closest&&(e.target.closest('#volpanel')||e.target.closest('#volbtn')))return;vp.hidden=true;vb.setAttribute('aria-expanded','false')});
 })();
 let subBuf=null;
 function applySubs(){
