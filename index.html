@@ -133,6 +133,10 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 .mini{font-size:13px;line-height:1.35;color:var(--mute);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mini b{color:#e58a7a;letter-spacing:.1em;margin-right:4px}.mini mark{background:none;color:var(--sun);font-weight:700}
 
+.line .chip{touch-action:none;-webkit-user-select:none;user-select:none;cursor:grab;-webkit-touch-callout:none}
+.line .chip.drag{position:relative;z-index:40;cursor:grabbing;opacity:.92;transition:none!important;box-shadow:0 10px 22px rgba(0,0,0,.5)!important}
+.line .chip.dropb{box-shadow:-6px 0 0 var(--sun),0 2px 0 rgba(0,0,0,.45)!important}
+.line .chip.dropa{box-shadow:6px 0 0 var(--sun),0 2px 0 rgba(0,0,0,.45)!important}
 .line{min-height:92px;background:var(--panel);border:2px dashed var(--line);border-radius:14px;padding:14px 12px;display:flex;flex-wrap:wrap;gap:10px 8px;align-items:center}
 .line .ph{color:var(--mute);font-size:14px}
 .ctl{display:flex;gap:8px;flex-wrap:wrap}
@@ -1282,7 +1286,7 @@ function write(){
     ${ptRow}
     ${altRow}
     ${cutRow}</div>
-    <p class="note">並べたカードを選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
+    <p class="note">並べたカードはつかんで動かすと順番を入れ替えられます。選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
     ${ngLine?'<p class="note" style="color:var(--bad,#e5484d);font-weight:700">配信向けではない表現になっています。言葉を変えてね</p>':''}
     <button class="btn" data-a="submit" ${needOK(L.line.length)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':needOK(L.line.length)?'これでいく!':S.exact?(L.line.length<S.exact?`あと${S.exact-L.line.length}枚(ちょうど${S.exact}枚)`:`${L.line.length-S.exact}枚多いよ(ちょうど${S.exact}枚)`):`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
@@ -1339,6 +1343,7 @@ function view(){
   return ({lobby,write,judge,result,end}[S.phase]||home)();
 }
 function render(){
+  if(DRAG&&DRAG.on){DRAG.late=1;return}   // つかんで動かしている間は、画面を作り直さない
   const bi=$('#bringin'),keep=bi?{v:bi.value,f:document.activeElement===bi,s:bi.selectionStart}:null;   // 入力中のお題は消さない
   $('#app').innerHTML=view();
   if(keep){const n=$('#bringin');if(n){n.value=keep.v;if(keep.f){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}}
@@ -1406,6 +1411,46 @@ document.addEventListener('click',e=>{
     case 'clap':{const sid=+d.sid;if(L.clap===null){L.clap=sid;reliable('clap',{sid},()=>S.clapped.includes(me.pid)||S.phase!=='judge');render()}break}
   }
 });
+/* 並べたカードをつかんで動かして、順番を入れ替える(スマホはドラッグ、PCはマウスでつかんで移動) */
+let DRAG=null,DRAGSUP=false;
+document.addEventListener('pointerdown',e=>{
+  const el=e.target.closest&&e.target.closest('.line [data-a="lsel"]');
+  if(!el||(e.pointerType==='mouse'&&e.button!==0))return;
+  DRAG={el,i:+el.dataset.i,x:e.clientX,y:e.clientY,on:false,id:e.pointerId,to:-1,after:false,late:0};
+});
+document.addEventListener('pointermove',e=>{
+  if(!DRAG||e.pointerId!==DRAG.id)return;
+  const dx=e.clientX-DRAG.x,dy=e.clientY-DRAG.y;
+  if(!DRAG.on){
+    if(Math.hypot(dx,dy)<8)return;
+    DRAG.on=true;DRAG.el.classList.add('drag');
+    try{DRAG.el.setPointerCapture(e.pointerId)}catch(_){}
+  }
+  e.preventDefault();
+  DRAG.el.style.transform=`translate(${dx}px,${dy}px)`;
+  const chips=[...document.querySelectorAll('.line [data-a="lsel"]')];
+  chips.forEach(c=>c.classList.remove('dropb','dropa'));
+  let best=null,bd=1e9;
+  chips.forEach(c=>{if(c===DRAG.el)return;const r=c.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,d=Math.hypot(e.clientX-cx,(e.clientY-cy)*2);if(d<bd){bd=d;best=c;DRAG.after=e.clientX>=cx}});
+  if(best){DRAG.to=+best.dataset.i;best.classList.add(DRAG.after?'dropa':'dropb')}else DRAG.to=-1;
+},{passive:false});
+function dragEnd(e){
+  if(!DRAG||e.pointerId!==DRAG.id)return;
+  const D=DRAG;DRAG=null;
+  if(!D.on)return;
+  DRAGSUP=true;setTimeout(()=>{DRAGSUP=false},80);
+  if(D.to>=0&&D.to!==D.i&&L.line[D.i]){
+    const item=L.line.splice(D.i,1)[0];
+    let idx=D.to>D.i?D.to-1:D.to;if(D.after)idx+=1;
+    idx=Math.max(0,Math.min(L.line.length,idx));
+    L.line.splice(idx,0,item);L.sel=idx;
+  }
+  render();
+}
+document.addEventListener('pointerup',dragEnd);
+document.addEventListener('pointercancel',dragEnd);
+document.addEventListener('click',e=>{if(DRAGSUP){e.stopImmediatePropagation();e.preventDefault();DRAGSUP=false}},true);
+document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('.line [data-a="lsel"]'))e.preventDefault()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='bringin'){e.preventDefault();bringAdd()}});
 render();
 /* 起動時: ホストなら直前の状態から再開、参加者なら直前の部屋へ自動で入り直す(ページの読み込み直しや、タブが落ちたとき用) */
