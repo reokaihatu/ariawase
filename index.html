@@ -194,10 +194,11 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 #chatform button{border:0;border-radius:12px;background:var(--sun);color:var(--paper-ink);font-weight:900;padding:0 18px}
 #bgmbtn{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;border:2px solid var(--line);background:var(--panel);font-size:22px;box-shadow:0 6px 16px rgba(0,0,0,.45);z-index:20;padding:0}
 #bgmbtn.on{border-color:var(--mint)}
-#volbtn{position:fixed;left:calc(max(14px,env(safe-area-inset-left)) + 60px);bottom:calc(max(14px,env(safe-area-inset-bottom)) + 6px);width:40px;height:40px;border-radius:50%;border:2px solid var(--line);background:var(--panel);font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.45);z-index:20;padding:0}
 #volpanel{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:calc(max(14px,env(safe-area-inset-bottom)) + 62px);z-index:21;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px 14px 12px;box-shadow:0 8px 22px rgba(0,0,0,.55);width:min(260px,calc(100vw - 28px));font-size:14px}
 #volpanel[hidden]{display:none}
-#volpanel label{display:flex;justify-content:space-between;margin-bottom:6px;color:var(--mute)}
+#volpanel label{display:flex;justify-content:space-between;margin:10px 0 2px;color:var(--mute)}
+#bgmtoggle{width:100%;height:44px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px;font-weight:900}
+#bgmtoggle.on{border-color:var(--mint);background:var(--mint);color:var(--paper-ink)}
 #volpanel b{color:var(--sun)}
 #volrange{width:100%;height:32px;accent-color:var(--mint);margin:0}
 </style>
@@ -206,8 +207,7 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 <div id="app"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <button id="bgmbtn" type="button" aria-label="BGMを鳴らす" aria-pressed="false">🔇</button>
-<button id="volbtn" type="button" aria-label="BGMの音量" aria-expanded="false">🎚</button>
-<div id="volpanel" hidden><label for="volrange">BGMの音量 <b id="vollabel">100%</b></label><input id="volrange" type="range" min="0" max="200" step="1" value="100" aria-label="BGMの音量"></div>
+<div id="volpanel" hidden><button id="bgmtoggle" type="button" aria-pressed="false">BGM オフ</button><label for="volrange">音量 <b id="vollabel">100%</b></label><input id="volrange" type="range" min="0" max="200" step="1" value="100" aria-label="BGMの音量"></div>
 <button id="chatbtn" type="button" aria-label="チャットを開く" hidden>💬<b id="chatbadge" hidden></b></button>
 <section id="chatbox" aria-label="チャット" hidden>
   <header><span>チャット</span><button id="chatx" type="button">とじる</button></header>
@@ -627,21 +627,23 @@ window.__bgm=BGM;
   const btn=$('#bgmbtn');let want=false;
   const key='aw_bgm';
   try{want=localStorage.getItem(key)==='1'}catch(e){}
-  const draw=()=>{const o=BGM.isOn();btn.textContent=o?'🔊':'🔇';btn.classList.toggle('on',o);btn.setAttribute('aria-pressed',o?'true':'false');btn.setAttribute('aria-label',o?'BGMを止める':'BGMを鳴らす')};
+  const tg=$('#bgmtoggle');
+  const draw=()=>{const o=BGM.isOn();if(tg){tg.textContent=o?'BGM オン':'BGM オフ';tg.classList.toggle('on',o);tg.setAttribute('aria-pressed',o?'true':'false')}btn.textContent=o?'🔊':'🔇';btn.classList.toggle('on',o);btn.setAttribute('aria-pressed',o?'true':'false');btn.setAttribute('aria-label',o?'BGMを止める':'BGMを鳴らす')};
   const save=v=>{try{localStorage.setItem(key,v?'1':'0')}catch(e){}};
-  btn.addEventListener('click',e=>{e.stopPropagation();if(BGM.isOn()){BGM.stop();save(0)}else{BGM.start();save(1)}want=false;draw()});
+  const vp=$('#volpanel'),vr=$('#volrange'),vl=$('#vollabel');
+  const toggle=()=>{if(BGM.isOn()){BGM.stop();save(0)}else{BGM.start();save(1)}want=false;draw()};
+  btn.addEventListener('click',e=>{e.stopPropagation();vp.hidden=!vp.hidden;btn.setAttribute('aria-expanded',vp.hidden?'false':'true')});
+  tg.addEventListener('click',e=>{e.stopPropagation();toggle()});
   // 前回オンにしていたら、最初の操作で自動的に再開する(スマホは操作がないと音を出せない)
-  if(want)document.addEventListener('pointerdown',function f(e){if(e.target.closest&&e.target.closest('#bgmbtn'))return;document.removeEventListener('pointerdown',f);if(want&&!BGM.isOn()){BGM.start();draw()}});
+  if(want)document.addEventListener('pointerdown',function f(e){if(e.target.closest&&(e.target.closest('#bgmbtn')||e.target.closest('#volpanel')))return;document.removeEventListener('pointerdown',f);if(want&&!BGM.isOn()){BGM.start();draw()}});
   draw();
   // 音量(0〜200、標準は100)。記憶しておく
-  const vb=$('#volbtn'),vp=$('#volpanel'),vr=$('#volrange'),vl=$('#vollabel');
   let v0=100;try{const x=localStorage.getItem('aw_bgm_vol2');if(x!==null&&x!==''&&!isNaN(+x))v0=Math.max(0,Math.min(200,+x))}catch(e){}
   BGM.setVol(v0);
-  const showVol=()=>{vr.value=BGM.getVol();vl.textContent=BGM.getVol()+'%';vb.textContent=BGM.getVol()===0?'🔈':'🎚'};
+  const showVol=()=>{vr.value=BGM.getVol();vl.textContent=BGM.getVol()+'%'};
   showVol();
   vr.addEventListener('input',()=>{BGM.setVol(vr.value);showVol();try{localStorage.setItem('aw_bgm_vol2',String(BGM.getVol()))}catch(e){}});
-  vb.addEventListener('click',e=>{e.stopPropagation();vp.hidden=!vp.hidden;vb.setAttribute('aria-expanded',vp.hidden?'false':'true')});
-  document.addEventListener('pointerdown',e=>{if(vp.hidden)return;if(e.target.closest&&(e.target.closest('#volpanel')||e.target.closest('#volbtn')))return;vp.hidden=true;vb.setAttribute('aria-expanded','false')});
+  document.addEventListener('pointerdown',e=>{if(vp.hidden)return;if(e.target.closest&&(e.target.closest('#volpanel')||e.target.closest('#bgmbtn')))return;vp.hidden=true;btn.setAttribute('aria-expanded','false')});
 })();
 let subBuf=null;
 function applySubs(){
