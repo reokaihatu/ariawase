@@ -37,6 +37,16 @@ h1,h2,h3,p{margin:0}
 .note{color:var(--mute);font-size:13px}
 .qli{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.5}
 .qli mark{background:none;color:var(--sun);font-weight:700}
+#netwarn{position:fixed;top:0;left:0;right:0;z-index:40;background:#e5484d;color:#fff;text-align:center;padding:7px 10px;font-size:13px;font-weight:800}
+#netwarn[hidden]{display:none}
+.bring{display:flex;flex-direction:column;gap:8px}
+.bring .row input{flex:1;min-width:0}
+.hh{font-family:var(--f-disp);font-weight:400;font-size:24px;margin-top:6px}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.hist li{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 14px}
+.hist small{color:var(--mute);font-size:12px}
+.hist p{font-family:var(--f-serif);font-weight:800;font-size:20px;line-height:1.5;margin:4px 0}
+.hist .by{color:var(--sun);font-size:13px;font-weight:700}
 
 /* 切り抜きカード */
 .chip{border:0;border-radius:3px;min-height:46px;padding:6px 14px;font-size:19px;color:var(--paper-ink);background:var(--paper);box-shadow:0 2px 0 rgba(0,0,0,.45),0 6px 12px rgba(0,0,0,.25);transition:transform .12s}
@@ -129,6 +139,7 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 .lab{font-size:12px;letter-spacing:.15em;color:var(--mute);margin-bottom:-6px}
 .wait{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .wait h2{font-size:20px}
+.pickhint{margin:0;padding:8px 12px;border-radius:12px;border:1px dashed var(--sun);background:color-mix(in srgb,var(--sun) 12%,transparent);color:var(--sun);font-weight:700;font-size:14px;text-align:center}
 .note-card{background:var(--paper);color:var(--paper-ink);font-family:var(--f-serif);font-weight:800;font-size:22px;padding:12px 16px;border-radius:4px;transform:rotate(-.6deg);box-shadow:0 6px 14px rgba(0,0,0,.35);word-break:break-all}
 .dots{display:flex;flex-wrap:wrap;gap:6px}
 .dot{font-size:13px;border-radius:99px;padding:2px 10px;border:1px solid var(--line);color:var(--mute)}
@@ -206,6 +217,7 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 <body>
 <div id="app"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="netwarn" role="status" hidden></div>
 <button id="bgmbtn" type="button" aria-label="BGMを鳴らす" aria-pressed="false">🔇</button>
 <div id="volpanel" hidden><button id="bgmtoggle" type="button" aria-pressed="false">BGM オフ</button><label for="volrange">音量 <b id="vollabel">100%</b></label><input id="volrange" type="range" min="0" max="200" step="1" value="100" aria-label="BGMの音量"></div>
 <button id="chatbtn" type="button" aria-label="チャットを開く" hidden>💬<b id="chatbadge" hidden></b></button>
@@ -405,6 +417,11 @@ let H=null;          // ホスト専用(作品の持ち主・拍手など)
 let isHost=false, net=null, skew=0, screen='home', loops=[];
 let L={round:-2,hand:[],line:[],sel:-1,submitted:false,myText:'',clap:null,pickSel:null};
 let cid=0;
+const HB_MS=4000, DROP_MS=(typeof window!=='undefined'&&window.__AW_DROP)||16000, SILENCE_MS=(typeof window!=='undefined'&&window.__AW_SILENCE)||35000;   // 心拍の間隔 / これだけ無音なら退室扱い
+const BMAX=2;                                                                       // 持ち寄りお題は1人2個まで
+let wantSpec=false, lastRx=Date.now(), HB=null;                                     // 観戦で入ったか / ホストからの最後の受信 / 優勝文の受信分
+const BR={code:'',mine:[],t:0};                                                     // 自分が出した持ち寄りお題
+const sdel=k=>{try{sessionStorage.removeItem(k)}catch(e){}};
 
 /* ===== Claudeなしで遊ぶための通信 =====
    公開MQTTサーバー(WebSocket)を中継に使う。部屋ごとに1つのトピックを購読し、全員の発言をそこへ流す。
@@ -482,7 +499,11 @@ const netText=()=>roomOK===null?'オンラインを確認中…':'オンライ�
 
 /* ================= 通信 ================= */
 const pl=pid=>S&&S.players.find(p=>p.pid===pid);
-function pub(){S.v++;S.hostNow=Date.now();emitState();after()}
+function pub(){S.v++;S.hostNow=Date.now();emitState();after();saveSnap()}
+function saveSnap(){
+  if(!isHost||!S||!H)return;
+  try{sessionStorage.setItem('hsnap',JSON.stringify({t:Date.now(),S:Object.assign({},S,{subs:null}),sub:S.subs,H:{texts:H.texts,claps:H.claps,subs:H.subs,order:H.order,chat:H.chat||[],chatN:H.chatN||0,bp:H.bp||[],hist:H.hist||[],ghost:H.ghost||{}}}))}catch(e){}
+}
 function emitState(){
   if(!net)return;
   const core=Object.assign({},S,{subs:null,ns:S.subs?S.subs.length:0});
@@ -658,6 +679,16 @@ function after(){syncLocal();render()}
 function onState(msg){
   if(isHost||msg.sameTab)return;
   const d=msg.data;if(!d)return;
+  lastRx=Date.now();
+  if(d.t==='closed'){if(S&&d.code===S.code){leave();toast('ホストが部屋を閉じました')}return}
+  if(d.t==='h'){
+    if(S&&d.code===S.code&&d.e&&Number.isInteger(d.e.i)&&d.e.i>=0&&d.e.i<200){
+      if(!HB||HB.code!==d.code)HB={code:d.code,items:{}};
+      HB.items[d.e.i]={r:(+d.e.r)|0,q:String(d.e.q||'').slice(0,60),n:String(d.e.n||'').slice(0,12),t:String(d.e.t||'').slice(0,200)};
+      if(S.phase==='end')histRender();
+    }
+    return;
+  }
   if(d.t==='chat'){if(S&&d.code===S.code&&Array.isArray(d.list))chatMerge(d.code,d.list.slice(-12));return}
   if(d.t==='sub'){
     if(!S||S.code!==d.code||!Number.isInteger(d.sid)||typeof d.text!=='string'||d.v<S.v)return;
@@ -670,11 +701,15 @@ function onState(msg){
   const prev=S;
   S=d.s;skew=S.hostNow-Date.now();
   if(prev&&prev.code===S.code&&prev.round===S.round&&prev.subs&&prev.subs.length===S.ns)S.subs=prev.subs;  // 同じラウンド内は作品を引き継ぐ
+  if(!S.nh||(prev&&prev.code!==S.code))HB=null;
   screen='game';applySubs();after();
 }
+let histT=null;
+function histRender(){clearTimeout(histT);histT=setTimeout(()=>{if(S&&S.phase==='end')render()},250)}
 function onAct(msg){
   if(!isHost||msg.sameTab)return;
   const a=msg.data;if(!a||a.t!=='act'||typeof a.pid!=='string')return;
+  if(H&&H.seen)H.seen[a.pid]=Date.now();
   handleAct(a);
 }
 function send(type,extra){
@@ -691,20 +726,42 @@ function handleAct(a){
   if(!S||!H)return;
   const p=pl(a.pid);
   switch(a.type){
-    case 'join':
-      if(!p&&S.players.length<MAXP){S.players.push({pid:a.pid,name:cleanName(a.name),bot:0,score:0});pub()}
+    case 'join':{
+      if(p||S.specs.some(x=>x.pid===a.pid))break;
+      const name=cleanName(a.name),g=H.ghost[a.pid];
+      if(!a.spec&&S.phase==='lobby'&&S.players.length<MAXP){S.players.push({pid:a.pid,name,bot:0,score:0});delete H.ghost[a.pid]}
+      else if(!a.spec&&g&&S.phase!=='lobby'&&S.phase!=='end')restoreGhost(a.pid,g);
+      else if(S.specs.length<30)S.specs.push({pid:a.pid,name});   // 観戦希望、または進行中・満員で入れない人は観戦
+      else break;
+      H.seen[a.pid]=Date.now();pub();hostTick();
+      break}
+    case 'sit':{
+      const i=S.specs.findIndex(x=>x.pid===a.pid);
+      if(S.phase==='lobby'&&!p&&i>=0&&S.players.length<MAXP){const [sp]=S.specs.splice(i,1);S.players.push({pid:sp.pid,name:sp.name,bot:0,score:0});pub()}
+      break}
+    case 'bye':dropPid(a.pid,'bye');break;
+    case 'hb':break;
+    case 'bring':{
+      if(S.phase!=='lobby'||!S.bring||!p)break;
+      const t=String(a.text||'').replace(/\s+/g,' ').trim().slice(0,40).replace(/[〇○◯]{1,3}/g,'{P}');
+      const mine=H.bp.filter(x=>x.pid===a.pid);
+      if(t.length<4||ngHit(t)||mine.length>=BMAX||mine.some(x=>x.text===t))break;
+      H.bp.push({pid:a.pid,text:t,by:p.name});S.bn[a.pid]=mine.length+1;pub();break}
+    case 'bringclr':
+      if(S.phase==='lobby'&&p){H.bp=H.bp.filter(x=>x.pid!==a.pid);delete S.bn[a.pid];pub()}
       break;
     case 'chat':{
       const text=String(a.text||'').replace(/\s+/g,' ').trim().slice(0,40),now=Date.now();
       H.chatT=H.chatT||{};
-      if(!p||!text||(H.chatT[a.pid]&&now-H.chatT[a.pid]<600))break;
+      const who=p||S.specs.find(x=>x.pid===a.pid);
+      if(!who||!text||(H.chatT[a.pid]&&now-H.chatT[a.pid]<600))break;
       H.chatT[a.pid]=now;H.chat=H.chat||[];H.chatN=(H.chatN||0)+1;
-      const m={id:H.chatN,pid:a.pid,name:p.name,text};H.chat.push(m);H.chat=H.chat.slice(-40);
+      const m={id:H.chatN,pid:a.pid,name:who.name,text};H.chat.push(m);H.chat=H.chat.slice(-40);
       chatMerge(S.code,[m]);emitChat();break}
     case 'submit':{
       let text=String(a.text||'').slice(0,200); const cn=+a.n||0;
       if(text&&ngHit(text))text='(配信向けではない表現のため伏せられました)';
-      if(S.phase==='write'&&p&&a.pid!==S.parent&&text&&(cn>=(S.minC||1)||!Number.isFinite(+a.n))&&!(a.pid in H.texts)){H.texts[a.pid]=text;S.submitted.push(a.pid);pub();hostTick()}
+      if(S.phase==='write'&&p&&a.pid!==S.parent&&text&&(!Number.isFinite(+a.n)||needOK(cn))&&!(a.pid in H.texts)){H.texts[a.pid]=text;S.submitted.push(a.pid);pub();hostTick()}
       break}
     case 'clap':
       if(S.phase==='judge'&&S.clapOn&&p&&a.pid!==S.parent&&Number.isInteger(a.sid)&&H.subs[a.sid]&&H.subs[a.sid].pid!==a.pid&&!(a.pid in H.claps)){
@@ -714,6 +771,52 @@ function handleAct(a){
       if(S.phase==='judge'&&a.pid===S.parent&&Number.isInteger(a.sid)&&H.subs[a.sid]&&clapReady())doResult(a.sid);
       break;
   }
+}
+/* 接続が切れた人は、一定時間ののちに自動で退室させる。同じ端末で戻ってくれば、点数と順番を引き継いで復帰する */
+function dropPid(pid,why){
+  if(!S||!H||pid===S.hostPid)return;
+  const si=S.specs.findIndex(x=>x.pid===pid);
+  if(si>=0){S.specs.splice(si,1);pub();return}
+  const i=S.players.findIndex(p=>p.pid===pid);
+  if(i<0||S.players[i].bot||S.phase==='end')return;
+  const p=S.players[i], msg=why==='timeout'?p.name+'さんの接続が切れたので退室しました':p.name+'さんが退室しました';
+  if(S.phase==='lobby'){S.players.splice(i,1);H.bp=H.bp.filter(x=>x.pid!==pid);delete S.bn[pid];pub();toast(msg);return}
+  if(why==='timeout')H.ghost[pid]={name:p.name,score:p.score,idx:i,text:H.texts[pid]||null,round:S.round};
+  S.players.splice(i,1);
+  delete H.texts[pid];S.submitted=S.submitted.filter(x=>x!==pid);
+  S.total=Math.max(S.round+1,S.total-S.laps);
+  const wasParent=S.parent===pid;
+  if(i<S.pk)S.pk--;
+  toast(msg);
+  if(S.players.length<3){clearTimers();S.phase='end';S.endWhy='人数が足りなくなったので、ここで終了しました';pub();emitHist();return}
+  if(wasParent){
+    S.pk=i-1;
+    if(S.phase==='write'||S.phase==='judge'){clearTimers();S.round--;nextRound();return}   // 聞き手が落ちたラウンドはやり直し(次の人が聞き手)
+  }
+  pub();hostTick();
+}
+function restoreGhost(pid,g){
+  delete H.ghost[pid];
+  const idx=Math.min(g.idx,S.players.length);
+  S.players.splice(idx,0,{pid,name:g.name,bot:0,score:g.score});
+  if(idx<=S.pk)S.pk++;
+  S.total+=S.laps;
+  if(S.phase==='write'&&g.text&&g.round===S.round&&pid!==S.parent&&!(pid in H.texts)){H.texts[pid]=g.text;S.submitted.push(pid)}
+  toast(g.name+'さんが復帰しました');
+}
+function watchdog(){
+  if(!isHost||!S||!H)return;
+  const now=Date.now();
+  if(H.wt&&now-H.wt>4000)Object.keys(H.seen).forEach(k=>H.seen[k]=now);   // ホスト自身が止まっていた間は、全員に猶予をあげる
+  H.wt=now;
+  if(S.phase==='end')return;
+  const stale=pid=>now-(H.seen[pid]||(H.seen[pid]=now))>DROP_MS;
+  S.specs.filter(x=>stale(x.pid)).forEach(x=>dropPid(x.pid,'timeout'));
+  S.players.filter(p=>!p.bot&&p.pid!==S.hostPid&&stale(p.pid)).forEach(p=>dropPid(p.pid,'timeout'));
+}
+function emitHist(){
+  if(!net||!H||!H.hist)return;
+  H.hist.forEach(e=>net.emit('state',{t:'h',code:S.code,e}).catch(()=>{}));
 }
 const clapReady=()=>!S.clapOn||(S.cneed||[]).filter(pid=>pl(pid)).every(pid=>S.clapped.includes(pid));
 function botPickSoon(){const par=pl(S.parent);if(par&&par.bot&&S.phase==='judge'&&clapReady()){H.timers.push(setTimeout(()=>{if(S.phase==='judge'&&clapReady())doResult(rnd(H.subs.length))},1500+rnd(2500)))}}
@@ -725,7 +828,7 @@ function addBot(){
   S.players.push({pid:'bot'+hash(name),name,bot:1,score:0});
 }
 function botLine(){
-  const h=makeHand((PROMPTS[S.pi]||[])[0]);
+  const h=makeHand(roundGenre());
   const ns=h.filter(c=>c.k==='n'),vs=h.filter(c=>c.k==='v'),as=h.filter(c=>c.k==='a'),ds=h.filter(c=>c.k==='d'),es=h.filter(c=>c.k==='e');
   const f=a=>a[rnd(a.length)];
   const nt=c=>c.t+(Math.random()<.8?c.pt:'');
@@ -741,22 +844,28 @@ function botLine(){
   ];
   let parts=f(pats)();
   const extra=[()=>nt(f(ns)),()=>f(ds).t,()=>f(as).t,()=>f(vs).t,()=>nt(f(ns))];
-  while(parts.length<(S.minC||1))parts.splice(Math.max(0,parts.length-1),0,f(extra)());
+  const want=S.exact||(S.minC||1);
+  while(parts.length<want)parts.splice(Math.max(0,parts.length-1),0,f(extra)());
+  while(S.exact&&parts.length>S.exact)parts.splice(Math.max(0,parts.length-2),1);
   return parts.join('');
 }
 function startGame(){
   if(S.players.length<3)return;
   S.players.forEach(p=>p.score=0);
-  S.round=-1;S.total=S.players.length*S.laps;
-  H.order=shuffle(PROMPTS.map((_,i)=>i).filter(i=>S.gs.includes(PROMPTS[i][0])));
+  S.round=-1;S.pk=-1;S.total=S.players.length*S.laps;S.endWhy='';
+  H.hist=[];S.nh=0;H.ghost={};
+  const base=shuffle(PROMPTS.map((_,i)=>i).filter(i=>S.gs.includes(PROMPTS[i][0])));
+  H.order=S.bring?shuffle(H.bp.map(x=>({c:x.text,by:x.by}))).concat(base):base;   // 持ち寄りは先に使い、足りない分はふつうのお題
   nextRound();
 }
 function nextRound(){
   clearTimers();
   S.round++;
-  if(S.round>=S.total){S.phase='end';pub();return}
-  const par=S.players[S.round%S.players.length];
-  S.parent=par.pid;S.pi=H.order[S.round%H.order.length];
+  if(S.round>=S.total){S.phase='end';pub();emitHist();return}
+  S.pk=((typeof S.pk==='number'?S.pk:-1)+1)%S.players.length;
+  const par=S.players[S.pk], it=H.order[S.round%H.order.length];
+  S.parent=par.pid;
+  if(typeof it==='number'){S.pi=it;S.cp=null;S.cb=null}else{S.pi=-1;S.cp=it.c;S.cb=it.by}
   S.phase='write';S.endsAt=Date.now()+S.secs*1000;
   S.submitted=[];S.subs=null;S.clapped=[];S.res=null;
   H.texts={};H.claps={};H.subs=[];
@@ -795,7 +904,11 @@ function doResult(sid){
     const p=pl(s.pid);if(p)p.score+=pts;
     return [s.sid,s.pid,cnt[s.sid]||0,pts];
   });
-  S.res={pick:sid,rows};S.phase='result';pub();
+  if(sid!==null){
+    const w=H.subs.find(s=>s.sid===sid),pw=w&&pl(w.pid),g=w&&H.ghost[w.pid],pp=pl(S.parent);
+    if(w){H.hist.push({i:H.hist.length,r:S.round+1,q:pText().replace(/\{P\}/g,pp?pp.name:'?').slice(0,60),n:pw?pw.name:(g?g.name:'?'),t:w.text.slice(0,200)});S.nh=H.hist.length}
+  }
+  S.res={pick:sid,rows};S.phase='result';pub();emitHist();
 }
 function hostTick(){
   if(!isHost||!S||!H)return;
@@ -803,6 +916,59 @@ function hostTick(){
     const need=S.players.length-1;
     if(S.submitted.length>=need||Date.now()>=S.endsAt+1500)toJudge();
   }
+}
+
+function purgeStale(){
+  const now=Date.now();
+  S.players=S.players.filter(p=>p.bot||p.pid===S.hostPid||now-(H.seen[p.pid]||now)<=DROP_MS);
+}
+function bringSave(){BR.t=Date.now();store('br_'+BR.code,JSON.stringify(BR.mine))}
+function bringLoad(){
+  if(!S||BR.code===S.code)return;
+  BR.code=S.code;BR.mine=[];
+  try{const x=JSON.parse(store('br_'+S.code)||'[]');if(Array.isArray(x))BR.mine=x.slice(0,BMAX).map(String)}catch(e){}
+}
+function bringAdd(){
+  const inp=$('#bringin');if(!inp||!S||S.phase!=='lobby'||!S.bring||isSpec())return;
+  const t=inp.value.replace(/\s+/g,' ').trim().slice(0,40).replace(/[〇○◯]{1,3}/g,'{P}');
+  if(t.length<4){toast('もう少し長く書いてね(4文字以上)');return}
+  if(ngHit(t)){toast('配信向けではない表現が含まれているので出せません');return}
+  bringLoad();
+  if(BR.mine.length>=BMAX){toast('お題は1人'+BMAX+'個までです');return}
+  if(BR.mine.includes(t)){toast('同じお題がすでにあります');return}
+  BR.mine.push(t);bringSave();inp.value='';
+  reliable('bring',{text:t},()=>S.phase!=='lobby'||((S.bn||{})[me.pid]||0)>=BR.mine.length);
+  render();
+}
+function histItems(){return isHost&&H&&H.hist?Object.fromEntries(H.hist.map(e=>[e.i,e])):(HB&&S&&HB.code===S.code?HB.items:{})}
+function copyHist(){
+  const items=histItems();
+  const lines=Object.keys(items).map(Number).sort((a,b)=>a-b).map(i=>{const e=items[i];return `第${e.r}ラウンド ${e.q}\n「${e.t}」(${e.n})`});
+  if(!lines.length)return;
+  const txt='【ありあわせ 各ラウンドの優勝文】\n'+lines.join('\n\n');
+  try{navigator.clipboard.writeText(txt).then(()=>toast('コピーしました'),()=>toast('コピーできませんでした'))}catch(e){toast('コピーできませんでした')}
+}
+function rearm(){
+  if(!S||!H)return;
+  if(S.phase==='write'){
+    S.players.filter(p=>p.bot&&p.pid!==S.parent&&!(p.pid in H.texts)).forEach(b=>H.timers.push(setTimeout(()=>handleAct({pid:b.pid,type:'submit',text:botLine()}),2000+rnd(5000))));
+  }else if(S.phase==='judge'){
+    if(S.clapOn)S.players.filter(p=>p.bot&&p.pid!==S.parent&&!(p.pid in H.claps)).forEach(b=>H.timers.push(setTimeout(()=>{
+      const c=H.subs.filter(s=>s.pid!==b.pid);if(c.length)handleAct({pid:b.pid,type:'clap',sid:c[rnd(c.length)].sid});
+    },2000+rnd(5000))));
+    const par=pl(S.parent);
+    if(par&&par.bot){if(S.clapOn)botPickSoon();else H.timers.push(setTimeout(()=>{if(S.phase==='judge')doResult(rnd(H.subs.length))},4000+rnd(2000)))}
+  }
+}
+/* ホストがページを読み込み直しても、直前の状態から再開する */
+function resumeHost(snap){
+  S=snap.S;S.subs=snap.sub||null;
+  H=Object.assign({texts:{},claps:{},subs:[],order:[],bp:[],hist:[],ghost:{}},snap.H,{timers:[],seen:{}});
+  const now=Date.now();S.hostNow=now;
+  S.players.forEach(p=>H.seen[p.pid]=now);S.specs.forEach(x=>H.seen[x.pid]=now);
+  isHost=true;screen='game';
+  startLoops();netBusy=true;render();rearm();
+  openNet(S.code).then(n=>{net=n;netBusy=false;if(net){emitState();emitChat()}else toast('オンラインに接続できません');render()}).catch(()=>{netBusy=false;render()});
 }
 
 /* ================= 部屋の出入り ================= */
@@ -823,8 +989,8 @@ async function hostCreate(solo){
   me.name=cleanName($('#name').value);store('name',me.name);
   isHost=true;screen='game';
   const code=genCode();
-  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
-  H={texts:{},claps:{},subs:[],timers:[],order:[]};
+  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],specs:[],exact:0,bring:0,bn:{},nh:0,cp:null,cb:null,pk:-1,endWhy:'',laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
+  H={texts:{},claps:{},subs:[],timers:[],order:[],seen:{},ghost:{},bp:[],hist:[]};
   if(solo){addBot();addBot();addBot()}
   startLoops();pub();
   netBusy=true;render();
@@ -836,25 +1002,46 @@ async function hostCreate(solo){
 function startLoops(){
   stopLoops();
   loops.push(setInterval(hostTick,500));
-  loops.push(setInterval(()=>{if(S){S.hostNow=Date.now();emitState();emitChat()}},2000));
+  loops.push(setInterval(()=>{if(S){S.hostNow=Date.now();emitState();emitChat();if(S.phase==='result'||S.phase==='end')emitHist()}},2000));
+  loops.push(setInterval(watchdog,1000));
 }
-async function joinRoom(){
-  const code=($('#code').value||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+async function joinRoom(opt){
+  opt=opt||{};
+  const code=(opt.code||($('#code')&&$('#code').value)||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   if(code.length<4){toast('4文字のコードを入れてね');return}
-  me.name=cleanName($('#name').value);store('name',me.name);
+  if(!opt.auto){me.name=cleanName($('#name').value);store('name',me.name)}
+  wantSpec=!!opt.spec;
   isHost=false;S=null;screen='joining';render();
   try{net=await openNet(code)}catch(e){net=null}
   if(!net){toast('オンラインに接続できませんでした'+(netErr?'('+netErr+')':''));leave();return}
+  store('room',JSON.stringify({code,spec:wantSpec?1:0,t:Date.now()}));
+  lastRx=Date.now();
   const t0=Date.now();
   stopLoops();
+  const inGame=()=>!!S&&(!!pl(me.pid)||isSpec());
   loops.push(setInterval(()=>{
-    if(S&&pl(me.pid))return;
+    if(inGame())return;                                   // 部屋にいない(まだ・または退室扱い)の間は、入り直しを送り続ける
     if(!S&&Date.now()-t0>9000){toast('その部屋は見つかりませんでした');leave();return}
-    send('join');
+    send('join',{spec:wantSpec?1:0});
   },1000));
-  send('join');
+  loops.push(setInterval(()=>{if(inGame())send('hb')},HB_MS));   // 生きていることをホストに伝える
+  loops.push(setInterval(linkWatch,1000));
+  send('join',{spec:wantSpec?1:0});
+}
+function linkWatch(){
+  const w=$('#netwarn');if(!w||isHost||!S)return;
+  const gap=Date.now()-lastRx;
+  if(gap>SILENCE_MS){leave();toast('ホストとの接続が切れたので、退室しました');return}
+  if(gap>Math.min(9000,SILENCE_MS/2)){w.hidden=false;w.textContent='ホストとの接続を確認しています…('+Math.floor(gap/1000)+'秒)'}else w.hidden=true;
 }
 function leave(){
+  try{
+    if(net&&S){
+      if(isHost)net.emit('state',{t:'closed',code:S.code}).catch(()=>{});
+      else net.emit('act',{t:'act',pid:me.pid,type:'bye',name:me.name}).catch(()=>{});
+    }
+  }catch(e){}
+  sdel('room');sdel('hsnap');wantSpec=false;HB=null;{const w=$('#netwarn');if(w)w.hidden=true}
   stopLoops();if(H)clearTimers();
   try{net&&net.leave()}catch(e){}
   net=null;S=null;H=null;isHost=false;screen='home';skew=0;CH={code:'',list:[],unread:0,open:false,drawn:-1};
@@ -895,12 +1082,16 @@ const chars=c=>Array.from(c.t);
 const cardBody=c=>{const a=chars(c);return a.slice(c.h||0,a.length-(c.tl||0)).join('')};
 const cardText=c=>cardBody(c)+(c.pt&&c.on?c.pt:'');
 /* 配信向けNG: 言葉を削ったりつなげたりしてできた文章に、直接的な性的表現が含まれていたら出せない */
-const NG=W('ちんこ ちんぽ ちんぽこ ちんちん ちんげ まんこ おまんこ ぱいぱん ふぇら ふぇらちお まんずり おなにー しこしこ せっくす なかだし ぱいずり ざーめん ちくび きんたま ぼっき しゃせい せいえき 陰茎 陰毛 陰核 陰部 膣 射精 勃起 精液 精子 性器 性行為 乳首 乳輪 局部 強姦 レイプ 売春 援交');
+const NG=W('ちんこ ちんぽ ちんぽこ ちんちん ちんげ まんこ おまんこ ぱいぱん ふぇら ふぇらちお まんずり おなにー しこしこ せっくす なかだし ぱいずり ざーめん ちくび きんたま ぼっき しゃせい せいえき 陰茎 陰毛 陰核 陰部 膣 射精 勃起 精液 精子 性器 性行為 乳首 乳輪 局部 強姦 レイプ 売春 援交 おちんちん ちんぴく ちんかす ちんこ おめこ まんすじ まんびら けつあな しりあな ふたなり ぱいおつ にくぼう たまぶくろ くぱぁ くんにりんぐす おなぬー おなにぃ てこき あしこき ぱいこき なまはめ はめどり がんしゃ せくろす せんずり あなるせっくす あなる ぽるの ろりこん 陰嚢 睾丸 亀頭 包皮 包茎 肉棒 巨根 早漏 絶倫 童貞 淫乱 淫語 淫行 痴女 痴漢 盗撮 乱交 輪姦 近親相姦 獣姦 肛門 顔射 手淫 自慰 騎乗位 正常位 後背位 前戯 性交 性欲 性奴隷 中出し 生ハメ 本番行為 風俗嬢 売春婦 セクハラ 強制わいせつ わいせつ 猥褻 全裸 裸体 sex porn');
 const ngNorm=t=>String(t).normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s　ー・、。,.!?…「」『』()~〜_-]/g,'');
 const ngNoP=t=>t.replace(/[をがはにでのともへ]/g,'');
 const NGN=NG.map(ngNorm);
 const ngHit=text=>{const n=ngNorm(text),m=ngNoP(n);return NGN.some(x=>n.includes(x)||(ngNoP(x).length>=3&&m.includes(ngNoP(x))))};
-const roundGenre=()=>((PROMPTS[S.pi]||[])[0]);
+const roundGenre=()=>S.cp!=null?undefined:((PROMPTS[S.pi]||[])[0]);
+const pText=()=>S.cp!=null?S.cp:((PROMPTS[S.pi]||['',''])[1]);
+const pGenre=()=>S.cp!=null?null:GENRES[(PROMPTS[S.pi]||[])[0]];
+const isSpec=()=>!!S&&!!S.specs&&!pl(me.pid)&&S.specs.some(x=>x.pid===me.pid);
+const needOK=n=>S.exact?n===S.exact:n>=(S.minC||1);
 function syncLocal(){
   if(!S)return;
   if(S.phase==='lobby'){
@@ -910,11 +1101,11 @@ function syncLocal(){
   if(S.round!==L.round){
     L.round=S.round;L.line=[];L.sel=-1;L.clap=null;L.pickSel=null;
     L.submitted=S.submitted.includes(me.pid);if(!L.submitted)L.myText='';
-    L.hand=baseCards().concat(makeHand(roundGenre()));
+    L.hand=isSpec()?[]:baseCards().concat(makeHand(roundGenre()));
   }
 }
 function doSubmit(){
-  if(L.submitted||L.line.length<(S.minC||1))return;
+  if(L.submitted||!needOK(L.line.length))return;
   const text=L.line.map(cardText).join(''), n=L.line.length;
   if(ngHit(text)){toast('配信向けではない表現が含まれているので出せません');return}
   L.myText=text;L.submitted=true;L.line=[];L.sel=-1;
@@ -952,6 +1143,7 @@ function home(){
       <input id="code" maxlength="4" autocomplete="off" autocapitalize="none" placeholder="部屋コード" aria-label="部屋コード">
       <button class="btn alt" data-a="join">入る</button>
     </div>
+    <button class="btn ghost" data-a="watch">観戦で入る(上にコードを入れてね)</button>
     <button class="btn ghost" data-a="solo">ひとりで試す(ボット3人)</button>
     <p class="note" id="netstat">${netText()}</p>
     ${addHint()}
@@ -961,23 +1153,24 @@ function home(){
       <li>ラウンドごとに「聞き手」が順番に決まり、お題が出ます。お題のジャンルは、ゲーム開始前にホストが選べます(「夜のギリギリ」は配信向けの大人ネタで、最初はオフです)。</li>
       <li>聞き手以外は、手札の言葉カードを並べて、お題への一言を作ります。全員に毎回「私」「あなた」「います」などのいつものカードが配られ、助詞や言い方は選び直せます。そこに、お題のジャンルに合う言葉が多めに配られます。名詞の助詞は使わなくてもOK。言葉は先頭や末尾を削って使えます(いつものカードは削れません)。カードも全部使わなくてOK。</li>
       <li>作品は名前を伏せて並びます。聞き手が一番好きなものを選ぶと、その作者に2点。(部屋の設定で「ウケた」の1点を足すこともできます)</li>
-      <li>全員が聞き手を回し終わったら、いちばん点が多い人が勝ち。</li>
+      <li>全員が聞き手を回し終わったら、いちばん点が多い人が勝ち。最後に、各ラウンドの優勝文も一覧で見られます。</li>
+      <li>ホストは、ロビーで「枚数縛り」(ちょうど何枚でつなぐか)や、みんなでお題を出し合う「持ち寄り」を選べます。ゲームが始まってから入る人や、見るだけの人は、観戦で入れます。通信が切れた人は自動で退室し、戻れば続きから復帰できます。</li>
     </ol>
   </details>`;
 }
 function joining(){return `<header class="hero"><h1 class="logo" aria-label="ありあわせ"><span>あ</span><span>り</span><span>あ</span><span>わ</span><span>せ</span></h1></header><section class="panel"><p>部屋に入っています…</p><button class="btn ghost" data-a="leave">やめる</button></section>`}
 function head(){
   const r=S.phase==='write'||S.phase==='judge'||S.phase==='result'?`${S.round+1} / ${S.total} ラウンド`:'';
-  return `<div class="head"><span>部屋 <b>${esc(S.code.toUpperCase())}</b></span><span>${r}</span><button class="btn ghost sm" data-a="leave">やめる</button></div>`;
+  return `<div class="head"><span>部屋 <b>${esc(S.code.toUpperCase())}</b>${isSpec()?' ・ 観戦中':''}</span><span>${r}</span><button class="btn ghost sm" data-a="leave">やめる</button></div>`;
 }
 function strip(){
-  return `<div class="strip">${S.players.map(p=>`<span class="pl${p.pid===me.pid?' me':''}${S.phase!=='lobby'&&S.phase!=='end'&&p.pid===S.parent?' par':''}"><i>${esc(p.name)}</i><b>${p.score}</b></span>`).join('')}</div>`;
+  return `<div class="strip">${S.players.map(p=>`<span class="pl${p.pid===me.pid?' me':''}${S.phase!=='lobby'&&S.phase!=='end'&&p.pid===S.parent?' par':''}"><i>${esc(p.name)}</i><b>${p.score}</b></span>`).join('')}${S.specs&&S.specs.length?`<span class="pl"><i>観戦</i><b>${S.specs.length}</b></span>`:''}</div>`;
 }
 function promptHTML(){
   const p=pl(S.parent);
-  const t=esc((PROMPTS[S.pi]||['',''])[1]).replace('{P}',`<mark>${esc(p?p.name:'?')}</mark>`);
-  const g=GENRES[(PROMPTS[S.pi]||[])[0]];
-  return `<section class="prompt"><small>お題${g?` ・ ${esc(g.name)}`:''}</small><p>${t}</p></section>`;
+  const t=esc(pText()).replace(/\{P\}/g,`<mark>${esc(p?p.name:'?')}</mark>`);
+  const g=pGenre();
+  return `<section class="prompt"><small>お題${g?` ・ ${esc(g.name)}`:(S.cp!=null?` ・ 持ち寄り${S.cb?`(${esc(S.cb)})`:''}`:'')}</small><p>${t}</p></section>`;
 }
 function hostCtl(){
   if(!isHost)return '';
@@ -996,6 +1189,25 @@ function listView(){
     <button class="btn" data-a="qback">もどる</button>
   </section>`;
 }
+function bringPanel(){
+  bringLoad();
+  const cnt=(S.bn&&S.bn[me.pid])||0;
+  if(BR.mine.length>cnt&&Date.now()-BR.t>4000)BR.mine.length=cnt;       // ホストに受け付けられなかった分は消す
+  const counts=S.players.filter(p=>!p.bot).map(p=>`${esc(p.name)} ${(S.bn&&S.bn[p.pid])||0}/${BMAX}`).join(' ・ ');
+  return `<div class="bring">
+    <p class="note">みんなでお題を出し合います。1人${BMAX}個まで。「〇〇」と書くと、そのラウンドの聞き手の名前に変わります。足りない分は、ふつうのお題で補います。</p>
+    ${isSpec()?'':`<div class="row"><input id="bringin" maxlength="40" autocomplete="off" placeholder="例:〇〇に、内緒の話をする" aria-label="お題を書く"><button class="btn alt" data-a="bringadd" ${BR.mine.length>=BMAX?'disabled':''}>出す</button></div>
+    ${BR.mine.length?`<ol class="qli">${BR.mine.map(t=>`<li>${esc(t).replace(/\{P\}/g,'<mark>〇〇</mark>')}</li>`).join('')}</ol><button class="btn ghost sm" data-a="bringclr">出したお題を取り消す</button>`:''}`}
+    <p class="note">出した数: ${counts||'まだありません'}</p>
+  </div>`;
+}
+function histHTML(){
+  const n=S.nh||0;if(!n)return '';
+  const items=histItems(), ids=Object.keys(items).map(Number).sort((a,b)=>a-b);
+  return `<h2 class="hh">各ラウンドの優勝文</h2>
+  <ol class="hist">${ids.map(i=>{const e=items[i];return `<li><small>第${e.r}ラウンド ・ ${esc(e.q)}</small><p>${esc(e.t)}</p><span class="by">${esc(e.n)}</span></li>`}).join('')}</ol>
+  ${ids.length<n?`<p class="note">受信中… ${ids.length} / ${n}</p>`:`<button class="btn ghost sm" data-a="copyhist">優勝文をコピー</button>`}`;
+}
 function lobby(){
   if(LV!==null)return listView();
   const host=isHost, n=S.players.length;
@@ -1007,17 +1219,23 @@ function lobby(){
   <section class="panel">
     <h2>参加者 ${n}/${MAXP}</h2>
     <ul class="plist">${S.players.map(p=>`<li><span>${esc(p.name)}${p.pid===S.hostPid?' (ホスト)':''}${p.bot?' (ボット)':''}${p.pid===me.pid?' ←あなた':''}</span>${host&&p.pid!==S.hostPid?`<button class="x" data-a="rm" data-pid="${esc(p.pid)}" aria-label="${esc(p.name)}を外す">×</button>`:''}</li>`).join('')}</ul>
+    ${S.specs&&S.specs.length?`<p class="note">観戦 ${S.specs.length}人: ${S.specs.map(x=>esc(x.name)).join('・')}</p>`:''}
+    ${isSpec()?`<p class="note">あなたは観戦中です。ゲームには参加せず、見るだけです。</p>${n<MAXP?'<button class="btn alt sm" data-a="sit">参加者になる</button>':''}`:''}
     ${host&&!net&&!netBusy?`<button class="btn ghost sm" data-a="retry">もう一度接続する</button>`:''}
     ${host?`<button class="btn ghost sm" data-a="addbot" ${n>=MAXP?'disabled':''}>ボットを追加</button>`:''}
   </section>
   <section class="panel">
     <div class="seg"><span>周回</span>${[1,2,3].map(v=>`<button class="${S.laps===v?'on':''}" ${host?`data-a="laps" data-v="${v}"`:'disabled'}>${v}周</button>`).join('')}</div>
-    <div class="seg"><span>最低枚数</span>${[1,2,3,4,5,6].map(v=>`<button class="${(S.minC||1)===v?'on':''}" ${host?`data-a="minc" data-v="${v}"`:'disabled'}>${v}枚</button>`).join('')}</div>
-    <p class="note">文章を出すとき、カードを${S.minC||1}枚以上つなげる必要があります。</p>
+    <div class="seg"><span>最低枚数</span>${[1,2,3,4,5,6].map(v=>`<button class="${(S.minC||1)===v&&!S.exact?'on':''}" ${host&&!S.exact?`data-a="minc" data-v="${v}"`:'disabled'}>${v}枚</button>`).join('')}</div>
+    <p class="note">${S.exact?'枚数縛りの間は、最低枚数は使いません。':`文章を出すとき、カードを${S.minC||1}枚以上つなげる必要があります。`}</p>
+    <div class="seg"><span>枚数縛り</span>${[0,1,2,3,4,5,6].map(v=>`<button class="${(S.exact||0)===v?'on':''}" ${host?`data-a="exact" data-v="${v}"`:'disabled'}>${v?v+'枚':'なし'}</button>`).join('')}</div>
+    <p class="note">${S.exact?`カードをちょうど${S.exact}枚つなげた文だけ出せます(多くても少なくてもだめ)。`:'「なし」のときは、最低枚数だけが条件です。'}</p>
     <div class="seg"><span>制限時間</span>${[30,45,60,90].map(v=>`<button class="${S.secs===v?'on':''}" ${host?`data-a="secs" data-v="${v}"`:'disabled'}>${v}秒</button>`).join('')}</div>
     <div class="seg"><span>お題の<br>ジャンル</span>${Object.entries(GENRES).map(([k,g])=>`<button class="${S.gs.includes(k)?'on':''}" ${host?`data-a="gen" data-v="${k}"`:'disabled'}>${esc(g.name)}</button>`).join('')}</div>
     <p class="note">${PROMPTS.filter(p=>S.gs.includes(p[0])).length}個のお題から出ます。${host?'タップで選ぶ・外す(1つは残ります)':''}</p>
     <button class="btn ghost sm" data-a="qlist">お題の一覧を見る</button>
+    <div class="seg"><span>お題の<br>出し方</span>${[[0,'ふつう'],[1,'持ち寄り']].map(([v,l])=>`<button class="${(S.bring||0)===v?'on':''}" ${host?`data-a="bringopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
+    ${S.bring?bringPanel():'<p class="note">「持ち寄り」にすると、みんなが自分でお題を出し合います。</p>'}
     <div class="seg"><span>ウケた点</span>${[[0,'なし'],[1,'あり(+1点)']].map(([v,l])=>`<button class="${S.clapOn===v?'on':''}" ${host?`data-a="clapopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
     <p class="note">${S.clapOn?'全員が「ウケた」を押してから、聞き手が1つ選びます。聞き手が選んだ作品に2点、「ウケた」が一番多い作品にも1点。':'聞き手が選んだ作品だけに2点。'}</p>
     <p class="note">全${n*S.laps}ラウンド(全員が${S.laps}回ずつ聞き手)</p>
@@ -1031,9 +1249,10 @@ function progress(){
 function write(){
   const isP=S.parent===me.pid;
   const timerH=`<div class="timer" id="timer"><div><div id="bar"></div></div><span id="tm"></span></div>`;
+  if(isSpec())return head()+promptHTML()+timerH+`<section class="wait"><h2>観戦中</h2><p>みんなが手札の言葉をひねり出しています。</p>${progress()}</section>`+strip()+hostCtl();
   let h=head()+promptHTML()+((isP||L.submitted)?timerH:'');
   if(isP){
-    h+=`<section class="wait"><h2>あなたが聞き手です</h2><p>みんなが手札の言葉をひねり出しています。</p>${progress()}</section>`;
+    h+=`<section class="wait"><h2>あなたが聞き手です</h2><p>みんなが手札の言葉をひねり出しています。</p><p class="pickhint">✨ 最も自分に刺さった回答を選ぼう</p>${progress()}</section>`;
   }else if(L.submitted){
     h+=`<section class="wait"><h2>提出しました</h2><div class="note-card">${esc(L.myText)}</div>${progress()}</section>`;
   }else{
@@ -1051,7 +1270,7 @@ function write(){
       const b=(w,v,l,dis)=>`<button data-a="cut" data-w="${w}" data-v="${v}" ${dis?'disabled':''}>${l}</button>`;
       cutRow=`<div class="cutrow" aria-label="言葉をカット"><span class="cutprev">${prev}</span><span>先頭</span>${b('h',1,'削る',ch+ct>=n-1)}${b('h',-1,'戻す',ch<=0)}<span>末尾</span>${b('t',1,'削る',ch+ct>=n-1)}${b('t',-1,'戻す',ct<=0)}</div>`;
     }
-    const pp=pl(S.parent), mini=esc((PROMPTS[S.pi]||['',''])[1]).replace('{P}',`<mark>${esc(pp?pp.name:'?')}</mark>`);
+    const pp=pl(S.parent), mini=esc(pText()).replace(/\{P\}/g,`<mark>${esc(pp?pp.name:'?')}</mark>`);
     h+=`<div class="bench" id="bench">${timerH}<div class="mini"><b>お題</b> ${mini}</div>
     <div class="line" aria-label="作る一言">${L.line.length?L.line.map((c,i)=>chip(c,`data-a="lsel" data-i="${i}"`).replace('class="chip ',`class="chip ${i===L.sel?'sel ':''}`)).join(''):'<span class="ph">下のカードをタップして並べよう</span>'}</div>
     <div class="ctl">
@@ -1066,7 +1285,7 @@ function write(){
     <p class="note">並べたカードを選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったりできます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
     ${ngLine?'<p class="note" style="color:var(--bad,#e5484d);font-weight:700">配信向けではない表現になっています。言葉を変えてね</p>':''}
-    <button class="btn" data-a="submit" ${L.line.length>=(S.minC||1)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':L.line.length>=(S.minC||1)?'これでいく!':`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
+    <button class="btn" data-a="submit" ${needOK(L.line.length)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':needOK(L.line.length)?'これでいく!':S.exact?(L.line.length<S.exact?`あと${S.exact-L.line.length}枚(ちょうど${S.exact}枚)`:`${L.line.length-S.exact}枚多いよ(ちょうど${S.exact}枚)`):`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
   }
   return h+strip()+hostCtl();
 }
@@ -1080,7 +1299,7 @@ function judge(){
     const mine=L.myText&&text===L.myText;
     const cls=`sub n${sid%5}${mine?' mine':''}${isP&&L.pickSel===sid?' sel':''}`;
     if(isP)return `<button class="${cls}" data-a="psel" data-sid="${sid}" ${ready?'':'disabled'}><p>${esc(text)}</p></button>`;
-    if(!S.clapOn)return `<article class="${cls}"><p>${esc(text)}</p></article>`;
+    if(!S.clapOn||isSpec())return `<article class="${cls}"><p>${esc(text)}</p></article>`;
     return `<article class="${cls}"><p>${esc(text)}</p><button class="clap${L.clap===sid?' on':''}" data-a="clap" data-sid="${sid}" ${clapped||mine?'disabled':''}>${L.clap===sid?'ウケた済み':'ウケた'}</button></article>`;
   }).join('')}</div>`;
   if(isP){const need=(S.cneed||[]).filter(pid=>pl(pid)), got=need.filter(pid=>S.clapped.includes(pid)).length;
@@ -1107,17 +1326,22 @@ function end(){
   let rank=0,prev=null;
   return `${head()}
   <h2 style="font-family:var(--f-disp);font-weight:400;font-size:30px">けっか発表</h2>
+  ${S.endWhy?`<p class="note">${esc(S.endWhy)}</p>`:''}
   <div class="rows">${rs.map((p,i)=>{if(p.score!==prev){rank=i+1;prev=p.score}return `<div class="rank${rank===1?' first':''}"><span class="n">${rank}</span><span class="nm">${esc(p.name)}${p.pid===me.pid?' (あなた)':''}</span><span class="sc">${p.score}</span></div>`}).join('')}</div>
-  ${isHost?`<button class="btn" data-a="rematch">同じメンバーでもう一度</button>`:'<p class="note">ホストの操作を待っています…</p>'}`;
+  ${histHTML()}
+  ${isHost?`<button class="btn" data-a="rematch">同じメンバーでもう一度</button>`:(isSpec()?'<p class="note">ホストの操作を待っています…</p>':'<p class="note">ホストの操作を待っています…</p>')}`;
 }
 let LV=null; // お題の一覧(ロビーだけ)。開いているジャンルのキー
 function view(){
   if(!S||S.phase!=='lobby')LV=null;
   if(!S)return screen==='joining'?joining():home();
+  if(!isHost&&!pl(me.pid)&&!isSpec())return joining();     // 退室扱いになった・まだ受け付けられていない間
   return ({lobby,write,judge,result,end}[S.phase]||home)();
 }
 function render(){
+  const bi=$('#bringin'),keep=bi?{v:bi.value,f:document.activeElement===bi,s:bi.selectionStart}:null;   // 入力中のお題は消さない
   $('#app').innerHTML=view();
+  if(keep){const n=$('#bringin');if(n){n.value=keep.v;if(keep.f){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}}
   tick();
   chatSync();
 }
@@ -1128,7 +1352,7 @@ function tick(){
   tm.textContent=Math.ceil(left/1000);
   bar.style.width=Math.min(100,left/(S.secs*1000)*100)+'%';
   box.classList.toggle('low',left<=10000);
-  if(left<=0&&!L.submitted&&L.line.length>=(S.minC||1)&&S.parent!==me.pid)doSubmit();
+  if(left<=0&&!L.submitted&&needOK(L.line.length)&&S.parent!==me.pid&&!isSpec())doSubmit();
 }
 setInterval(tick,250);
 
@@ -1140,14 +1364,21 @@ document.addEventListener('click',e=>{
     case 'create':hostCreate(false);break;
     case 'solo':hostCreate(true);break;
     case 'join':joinRoom();break;
+    case 'watch':joinRoom({spec:1});break;
+    case 'sit':if(isSpec()){wantSpec=false;send('sit')}break;
     case 'retry':if(isHost&&S&&!net&&!netBusy){netBusy=true;render();openNet(S.code).then(n=>{net=n;netBusy=false;if(net)emitState();else toast('まだつながりません');render()}).catch(()=>{netBusy=false;render()})}break;
     case 'leave':leave();break;
     case 'addbot':if(isHost){addBot();pub()}break;
-    case 'rm':if(isHost&&S.phase==='lobby'&&d.pid!==S.hostPid){S.players=S.players.filter(p=>p.pid!==d.pid);pub()}break;
+    case 'rm':if(isHost&&S.phase==='lobby'&&d.pid!==S.hostPid){S.players=S.players.filter(p=>p.pid!==d.pid);H.bp=H.bp.filter(x=>x.pid!==d.pid);delete S.bn[d.pid];pub()}break;
     case 'laps':if(isHost){S.laps=+d.v;pub()}break;
     case 'qlist':if(S&&S.phase==='lobby'){LV=Object.keys(GENRES)[0];render()}break;
     case 'qtab':if(S&&S.phase==='lobby'&&GENRES[d.v]){LV=d.v;render()}break;
     case 'qback':LV=null;render();break;
+    case 'exact':if(isHost&&S.phase==='lobby'&&[0,1,2,3,4,5,6].includes(+d.v)){S.exact=+d.v;pub()}break;
+    case 'bringopt':if(isHost&&S.phase==='lobby'){S.bring=+d.v?1:0;pub()}break;
+    case 'bringadd':bringAdd();break;
+    case 'bringclr':if(S&&S.phase==='lobby'&&!isSpec()){BR.mine=[];bringSave();reliable('bringclr',{},()=>S.phase!=='lobby'||!(S.bn&&S.bn[me.pid]))}render();break;
+    case 'copyhist':copyHist();break;
     case 'minc':if(isHost&&S.phase==='lobby'&&[1,2,3,4,5,6].includes(+d.v)){S.minC=+d.v;pub()}break;
     case 'secs':if(isHost){S.secs=+d.v;pub()}break;
     case 'gen':if(isHost&&S.phase==='lobby'){const i=S.gs.indexOf(d.v);if(i>=0){if(S.gs.length>1)S.gs.splice(i,1)}else S.gs.push(d.v);pub()}break;
@@ -1155,8 +1386,8 @@ document.addEventListener('click',e=>{
     case 'start':if(isHost)startGame();break;
     case 'next':if(isHost&&S.phase==='result')nextRound();break;
     case 'skip':if(isHost){if(S.phase==='write')toJudge();else if(S.phase==='judge')doResult(null)}break;
-    case 'rematch':if(isHost){S.phase='lobby';S.players.forEach(p=>p.score=0);S.round=-1;pub()}break;
-    case 'hand':{const c=L.hand.find(c=>c.id===+d.id);if(c&&!L.submitted&&!L.line.includes(c)){L.line.push(c);L.sel=-1}render();break}
+    case 'rematch':if(isHost){purgeStale();S.phase='lobby';S.players.forEach(p=>p.score=0);S.round=-1;S.pk=-1;S.endWhy='';S.nh=0;H.hist=[];H.bp=[];S.bn={};H.ghost={};pub()}break;
+    case 'hand':{const c=L.hand.find(c=>c.id===+d.id);if(c&&!L.submitted&&!L.line.includes(c)){if(S.exact&&L.line.length>=S.exact)toast('枚数縛りです。'+S.exact+'枚までしか並べられません');else{L.line.push(c);L.sel=-1}}render();break}
     case 'lsel':L.sel=(L.sel===+d.i)?-1:+d.i;render();break;
     case 'lleft':if(L.sel>0){const i=L.sel;[L.line[i-1],L.line[i]]=[L.line[i],L.line[i-1]];L.sel--}render();break;
     case 'lright':if(L.sel>=0&&L.sel<L.line.length-1){const i=L.sel;[L.line[i+1],L.line[i]]=[L.line[i],L.line[i+1]];L.sel++}render();break;
@@ -1175,7 +1406,16 @@ document.addEventListener('click',e=>{
     case 'clap':{const sid=+d.sid;if(L.clap===null){L.clap=sid;reliable('clap',{sid},()=>S.clapped.includes(me.pid)||S.phase!=='judge');render()}break}
   }
 });
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='bringin'){e.preventDefault();bringAdd()}});
 render();
+/* 起動時: ホストなら直前の状態から再開、参加者なら直前の部屋へ自動で入り直す(ページの読み込み直しや、タブが落ちたとき用) */
+(function boot(){
+  const FRESH=15*60*1000;
+  let snap=null;try{snap=JSON.parse(store('hsnap')||'null')}catch(e){}
+  if(snap&&snap.S&&snap.S.hostPid===me.pid&&snap.S.code&&Date.now()-snap.t<FRESH){resumeHost(snap);return}
+  let rm=null;try{rm=JSON.parse(store('room')||'null')}catch(e){}
+  if(rm&&rm.code&&Date.now()-rm.t<FRESH&&me.name)joinRoom({code:rm.code,spec:rm.spec,auto:1});
+})();
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&typeof claude==='undefined'){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 })();
 </script>
