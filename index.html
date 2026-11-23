@@ -35,6 +35,8 @@ button{cursor:pointer}
 :focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 h1,h2,h3,p{margin:0}
 .note{color:var(--mute);font-size:13px}
+.qli{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.5}
+.qli mark{background:none;color:var(--sun);font-weight:700}
 
 /* 切り抜きカード */
 .chip{border:0;border-radius:3px;min-height:46px;padding:6px 14px;font-size:19px;color:var(--paper-ink);background:var(--paper);box-shadow:0 2px 0 rgba(0,0,0,.45),0 6px 12px rgba(0,0,0,.25);transition:transform .12s}
@@ -338,7 +340,15 @@ const PROMPTS=[
 ['spicy','{P}を、夜のドライブに誘う'],['spicy','{P}と、密室のエレベーターで二人きりになった時の一言'],['spicy','マッサージ師として、{P}に施術内容を説明する'],['spicy','{P}に、混浴の注意事項を伝える'],
 ['spicy','{P}に、浮気がバレた言い訳をする'],['spicy','王様ゲームで、{P}に命令する'],['spicy','保健の先生として、{P}に特別授業をする'],['spicy','{P}に、お風呂上がりの色っぽい一言を言う'],
 ['spicy','初デートの帰り道、{P}にもう少し一緒にいたいと伝える'],['spicy','{P}に、深夜の電話でささやく'],['spicy','{P}に、夜のコンビニで買ったものの言い訳をする'],['spicy','{P}に、朝帰りの理由を説明する'],
-['spicy','{P}を、ホテルのルームサービスに案内する'],['spicy','{P}に、下ネタを言ってしまった言い訳をする'],['spicy','{P}に、モテる秘訣を教える'],['spicy','{P}の寝起きドッキリを、実況する']
+['spicy','{P}を、ホテルのルームサービスに案内する'],['spicy','{P}に、下ネタを言ってしまった言い訳をする'],['spicy','{P}に、モテる秘訣を教える'],['spicy','{P}の寝起きドッキリを、実況する'],
+['love','{P}に、プロポーズの言葉を贈る'],['love','{P}に、十年後の約束をする'],['love','{P}との出会いに、感謝を伝える'],['love','{P}に、けんかの仲直りの言葉をかける'],
+['excuse','{P}に、待ち合わせに行けなかった理由を話す'],['excuse','{P}に、借りたものを壊した言い訳をする'],['excuse','{P}に、ドタキャンの謝罪をする'],['excuse','{P}に、既読スルーしていた理由を話す'],
+['work','{P}に、転職の理由を語る'],['work','{P}に、無茶な納期をお願いする'],['work','{P}に、おいしい副業をすすめる'],['work','{P}に、退職の挨拶をする'],
+['fantasy','勇者として、{P}に仲間になってほしいと頼む'],['fantasy','宇宙人として、{P}に地球の感想を伝える'],['fantasy','{P}に、タイムマシンの使い方を教える'],['fantasy','ドラゴンとして、{P}に降伏をすすめる'],
+['news','{P}に、芸能ニュースを速報で伝える'],['news','特派員として、{P}に現地の様子を中継する'],['news','{P}に、今日の交通情報を伝える'],['news','行列のできる店を、{P}に取材する'],
+['gourmet','{P}に、一番好きな味噌汁の具を力説する'],['gourmet','シェフとして、{P}に本日の特別メニューを紹介する'],['gourmet','{P}に、食べ放題の攻略法を教える'],['gourmet','{P}に、手土産のお菓子をすすめる'],
+['daily','{P}に、休日の過ごし方を教える'],['daily','{P}に、最近ハマっていることを語る'],['daily','{P}に、おすすめのアプリを紹介する'],['daily','{P}に、引っ越しの挨拶をする'],
+['spicy','{P}に、混んだ電車で密着してしまった言い訳をする'],['spicy','{P}に、お泊まりの誘いをする'],['spicy','{P}の寝顔を見た感想を伝える'],['spicy','{P}に、浴衣姿の感想を伝える']
 ];
 const BOTS=['ボット壱','ボット弐','ボット参','ボット四','ボット五','ボット六'];
 const MAXP=12;
@@ -923,7 +933,20 @@ function hostCtl(){
   if(!isHost)return '';
   return `<div class="ctl"><button class="btn ghost sm" data-a="skip">このラウンドを飛ばす</button></div>`;
 }
+function listView(){
+  const gk=Object.keys(GENRES), g=GENRES[LV]?LV:gk[0], ps=PROMPTS.filter(p=>p[0]===g);
+  return `${head()}
+  <section class="panel">
+    <h2>お題の一覧</h2>
+    <p class="note">ゲーム開始前だけ見られます。<mark>聞き手</mark>の部分には、そのラウンドの聞き手の名前が入ります。</p>
+    <div class="seg">${gk.map(k=>`<button class="${k===g?'on':''}" data-a="qtab" data-v="${k}">${esc(GENRES[k].name)}</button>`).join('')}</div>
+    <p class="note">${esc(GENRES[g].name)}:${ps.length}個${S.gs.includes(g)?'':'(いまはオフ)'}</p>
+    <ol class="qli">${ps.map(p=>`<li>${esc(p[1]).replace('{P}','<mark>聞き手</mark>')}</li>`).join('')}</ol>
+    <button class="btn" data-a="qback">もどる</button>
+  </section>`;
+}
 function lobby(){
+  if(LV!==null)return listView();
   const host=isHost, n=S.players.length;
   return `${head()}
   <section class="panel">
@@ -943,6 +966,7 @@ function lobby(){
     <div class="seg"><span>制限時間</span>${[30,45,60,90].map(v=>`<button class="${S.secs===v?'on':''}" ${host?`data-a="secs" data-v="${v}"`:'disabled'}>${v}秒</button>`).join('')}</div>
     <div class="seg"><span>お題の<br>ジャンル</span>${Object.entries(GENRES).map(([k,g])=>`<button class="${S.gs.includes(k)?'on':''}" ${host?`data-a="gen" data-v="${k}"`:'disabled'}>${esc(g.name)}</button>`).join('')}</div>
     <p class="note">${PROMPTS.filter(p=>S.gs.includes(p[0])).length}個のお題から出ます。${host?'タップで選ぶ・外す(1つは残ります)':''}</p>
+    <button class="btn ghost sm" data-a="qlist">お題の一覧を見る</button>
     <div class="seg"><span>ウケた点</span>${[[0,'なし'],[1,'あり(+1点)']].map(([v,l])=>`<button class="${S.clapOn===v?'on':''}" ${host?`data-a="clapopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
     <p class="note">${S.clapOn?'全員が「ウケた」を押してから、聞き手が1つ選びます。聞き手が選んだ作品に2点、「ウケた」が一番多い作品にも1点。':'聞き手が選んだ作品だけに2点。'}</p>
     <p class="note">全${n*S.laps}ラウンド(全員が${S.laps}回ずつ聞き手)</p>
@@ -1035,7 +1059,9 @@ function end(){
   <div class="rows">${rs.map((p,i)=>{if(p.score!==prev){rank=i+1;prev=p.score}return `<div class="rank${rank===1?' first':''}"><span class="n">${rank}</span><span class="nm">${esc(p.name)}${p.pid===me.pid?' (あなた)':''}</span><span class="sc">${p.score}</span></div>`}).join('')}</div>
   ${isHost?`<button class="btn" data-a="rematch">同じメンバーでもう一度</button>`:'<p class="note">ホストの操作を待っています…</p>'}`;
 }
+let LV=null; // お題の一覧(ロビーだけ)。開いているジャンルのキー
 function view(){
+  if(!S||S.phase!=='lobby')LV=null;
   if(!S)return screen==='joining'?joining():home();
   return ({lobby,write,judge,result,end}[S.phase]||home)();
 }
@@ -1068,6 +1094,9 @@ document.addEventListener('click',e=>{
     case 'addbot':if(isHost){addBot();pub()}break;
     case 'rm':if(isHost&&S.phase==='lobby'&&d.pid!==S.hostPid){S.players=S.players.filter(p=>p.pid!==d.pid);pub()}break;
     case 'laps':if(isHost){S.laps=+d.v;pub()}break;
+    case 'qlist':if(S&&S.phase==='lobby'){LV=Object.keys(GENRES)[0];render()}break;
+    case 'qtab':if(S&&S.phase==='lobby'&&GENRES[d.v]){LV=d.v;render()}break;
+    case 'qback':LV=null;render();break;
     case 'minc':if(isHost&&S.phase==='lobby'&&[1,2,3,4,5,6].includes(+d.v)){S.minC=+d.v;pub()}break;
     case 'secs':if(isHost){S.secs=+d.v;pub()}break;
     case 'gen':if(isHost&&S.phase==='lobby'){const i=S.gs.indexOf(d.v);if(i>=0){if(S.gs.length>1)S.gs.splice(i,1)}else S.gs.push(d.v);pub()}break;
