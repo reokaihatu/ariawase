@@ -131,7 +131,8 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 /* タイマー */
 .timer{display:flex;align-items:center;gap:12px}
 .timer>div{flex:1;height:10px;border-radius:99px;background:var(--line);overflow:hidden}
-#bar{height:100%;width:100%;background:var(--mint);border-radius:99px;transition:width .3s linear}
+#bar{height:100%;width:100%;background:var(--mint);border-radius:99px}
+@keyframes aw-bar{from{width:100%}to{width:0}}
 .timer.low #bar{background:var(--pink)}
 #tm{font-family:var(--f-disp);font-size:24px;min-width:2.2em;text-align:right;font-variant-numeric:tabular-nums}
 .timer.low #tm{color:var(--pink)}
@@ -1372,7 +1373,9 @@ function tick(){
   const bar=$('#bar'),tm=$('#tm'),box=$('#timer');if(!bar)return;
   const left=Math.max(0,S.endsAt-(Date.now()+skew));
   tm.textContent=Math.ceil(left/1000);
-  bar.style.width=Math.min(100,left/(S.secs*1000)*100)+'%';
+  /* バーは「残り時間ぶんを一定の速さで縮む」アニメーションにする。画面を作り直しても、同じ位置から続きが始まるので跳ねない */
+  const total=S.secs*1000,key=S.endsAt+'|'+S.secs;
+  if(bar.dataset.k!==key){bar.dataset.k=key;bar.style.animation=`aw-bar ${total}ms linear ${-Math.min(total,total-left)}ms 1 both`}
   box.classList.toggle('low',left<=10000);
   if(left<=0&&!L.submitted&&needOK(L.line.length)&&S.parent!==me.pid&&!isSpec())doSubmit();
 }
