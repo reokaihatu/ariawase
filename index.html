@@ -1110,6 +1110,8 @@ const roundGenre=()=>S.cp!=null?undefined:((PROMPTS[S.pi]||[])[0]);
 const pText=()=>S.cp!=null?S.cp:((PROMPTS[S.pi]||['',''])[1]);
 const pGenre=()=>S.cp!=null?null:GENRES[(PROMPTS[S.pi]||[])[0]];
 const isSpec=()=>!!S&&!!S.specs&&!pl(me.pid)&&S.specs.some(x=>x.pid===me.pid);
+const isPunc=c=>!!(c&&c.base&&(c.t==='、'||c.t==='。'));   // 句読点は枚数に数えない
+const lineN=()=>L.line.filter(c=>!isPunc(c)).length;
 const needOK=n=>S.exact?n===S.exact:n>=(S.minC||1);
 function syncLocal(){
   if(!S)return;
@@ -1124,8 +1126,8 @@ function syncLocal(){
   }
 }
 function doSubmit(){
-  if(L.submitted||!needOK(L.line.length))return;
-  const text=L.line.map(cardText).join(''), n=L.line.length;
+  if(L.submitted||!needOK(lineN()))return;
+  const text=L.line.map(cardText).join(''), n=lineN();
   if(ngHit(text)){toast('配信向けではない表現が含まれているので出せません');return}
   L.myText=text;L.submitted=true;L.line=[];L.sel=-1;
   reliable('submit',{text,n},()=>S.submitted.includes(me.pid)||S.phase!=='write');
@@ -1246,9 +1248,9 @@ function lobby(){
   <section class="panel">
     <div class="seg"><span>周回</span>${[1,2,3].map(v=>`<button class="${S.laps===v?'on':''}" ${host?`data-a="laps" data-v="${v}"`:'disabled'}>${v}周</button>`).join('')}</div>
     <div class="seg"><span>最低枚数</span>${[1,2,3,4,5,6].map(v=>`<button class="${(S.minC||1)===v&&!S.exact?'on':''}" ${host&&!S.exact?`data-a="minc" data-v="${v}"`:'disabled'}>${v}枚</button>`).join('')}</div>
-    <p class="note">${S.exact?'枚数縛りの間は、最低枚数は使いません。':`文章を出すとき、カードを${S.minC||1}枚以上つなげる必要があります。`}</p>
+    <p class="note">${S.exact?'枚数縛りの間は、最低枚数は使いません。':`文章を出すとき、カードを${S.minC||1}枚以上つなげる必要があります(「、」「。」は枚数に数えません)。`}</p>
     <div class="seg"><span>枚数縛り</span>${[0,1,2,3,4,5,6].map(v=>`<button class="${(S.exact||0)===v?'on':''}" ${host?`data-a="exact" data-v="${v}"`:'disabled'}>${v?v+'枚':'なし'}</button>`).join('')}</div>
-    <p class="note">${S.exact?`カードをちょうど${S.exact}枚つなげた文だけ出せます(多くても少なくてもだめ)。`:'「なし」のときは、最低枚数だけが条件です。'}</p>
+    <p class="note">${S.exact?`カードをちょうど${S.exact}枚つなげた文だけ出せます(多くても少なくてもだめ。「、」「。」は枚数に数えません)。`:'「なし」のときは、最低枚数だけが条件です。'}</p>
     <div class="seg"><span>制限時間</span>${[30,45,60,90].map(v=>`<button class="${S.secs===v?'on':''}" ${host?`data-a="secs" data-v="${v}"`:'disabled'}>${v}秒</button>`).join('')}</div>
     <div class="seg"><span>お題の<br>ジャンル</span>${Object.entries(GENRES).map(([k,g])=>`<button class="${S.gs.includes(k)?'on':''}" ${host?`data-a="gen" data-v="${k}"`:'disabled'}>${esc(g.name)}</button>`).join('')}</div>
     <p class="note">${PROMPTS.filter(p=>S.gs.includes(p[0])).length}個のお題から出ます。${host?'タップで選ぶ・外す(1つは残ります)':''}</p>
@@ -1305,7 +1307,7 @@ function write(){
     <p class="note">並べたカードはつかんで動かすと順番を入れ替えられます。選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったり(ボタン/キーボードを選べます)できます。「いつものカード」は削れませんが、助詞を選び直せ、「です」は「ます」に、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
     ${ngLine?'<p class="note" style="color:var(--bad,#e5484d);font-weight:700">配信向けではない表現になっています。言葉を変えてね</p>':''}
-    <button class="btn" data-a="submit" ${needOK(L.line.length)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':needOK(L.line.length)?'これでいく!':S.exact?(L.line.length<S.exact?`あと${S.exact-L.line.length}枚(ちょうど${S.exact}枚)`:`${L.line.length-S.exact}枚多いよ(ちょうど${S.exact}枚)`):`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
+    <button class="btn" data-a="submit" ${needOK(lineN())&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':needOK(lineN())?'これでいく!':S.exact?(lineN()<S.exact?`あと${S.exact-lineN()}枚(ちょうど${S.exact}枚)`:`${lineN()-S.exact}枚多いよ(ちょうど${S.exact}枚)`):`あと${(S.minC||1)-lineN()}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
   }
   return h+strip()+hostCtl();
 }
@@ -1377,7 +1379,7 @@ function tick(){
   const total=S.secs*1000,key=S.endsAt+'|'+S.secs;
   if(bar.dataset.k!==key){bar.dataset.k=key;bar.style.animation=`aw-bar ${total}ms linear ${-Math.min(total,total-left)}ms 1 both`}
   box.classList.toggle('low',left<=10000);
-  if(left<=0&&!L.submitted&&needOK(L.line.length)&&S.parent!==me.pid&&!isSpec())doSubmit();
+  if(left<=0&&!L.submitted&&needOK(lineN())&&S.parent!==me.pid&&!isSpec())doSubmit();
 }
 setInterval(tick,250);
 
@@ -1413,7 +1415,7 @@ document.addEventListener('click',e=>{
     case 'next':if(isHost&&S.phase==='result')nextRound();break;
     case 'skip':if(isHost){if(S.phase==='write')toJudge();else if(S.phase==='judge')doResult(null)}break;
     case 'rematch':if(isHost){purgeStale();S.phase='lobby';S.players.forEach(p=>p.score=0);S.round=-1;S.pk=-1;S.endWhy='';S.nh=0;H.hist=[];H.bp=[];S.bn={};H.ghost={};pub()}break;
-    case 'hand':{const c=L.hand.find(c=>c.id===+d.id);if(c&&!L.submitted&&!L.line.includes(c)){if(S.exact&&L.line.length>=S.exact)toast('枚数縛りです。'+S.exact+'枚までしか並べられません');else{L.line.push(c);L.sel=-1}}render();break}
+    case 'hand':{const c=L.hand.find(c=>c.id===+d.id);if(c&&!L.submitted&&!L.line.includes(c)){if(S.exact&&!isPunc(c)&&lineN()>=S.exact)toast('枚数縛りです。'+S.exact+'枚までしか並べられません');else{L.line.push(c);L.sel=-1}}render();break}
     case 'lsel':L.sel=(L.sel===+d.i)?-1:+d.i;render();break;
     case 'lleft':if(L.sel>0){const i=L.sel;[L.line[i-1],L.line[i]]=[L.line[i],L.line[i-1]];L.sel--}render();break;
     case 'lright':if(L.sel>=0&&L.sel<L.line.length-1){const i=L.sel;[L.line[i+1],L.line[i]]=[L.line[i],L.line[i+1]];L.sel++}render();break;
