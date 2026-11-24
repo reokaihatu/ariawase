@@ -256,7 +256,7 @@ const CORE_P=['を','に','が'];                                               
 const CORE_E=['だよ','です','ね','よ','!','?','……','かもしれない','はず','と思う','でしょ','じゃん','かな','ぞ'];
 const GROUPS=[['いつものカード(全員に毎回・削れません・助詞は変えられます)',c=>c.base],['名詞(助詞は外せます)',c=>!c.base&&c.k==='n'],['動詞',c=>!c.base&&c.k==='v'],['ようす(形容詞・副詞・ひとこと)',c=>c.k==='a'||c.k==='d'],['つなぎ(語尾など)',c=>!c.base&&c.k==='e']];
 // 全員に毎回配る汎用カード。名詞の助詞は下の候補から変えられる
-const BASE=[{t:'私',k:'n',pt:'は'},{t:'あなた',k:'n',pt:'に'},{t:'みんな',k:'n',pt:'が'},{t:'これ',k:'n',pt:'は'},{t:'する',k:'v'},{t:'です',k:'e'},{t:'います',k:'e',alts:['います','します']}];
+const BASE=[{t:'私',k:'n',pt:'は'},{t:'あなた',k:'n',pt:'に'},{t:'みんな',k:'n',pt:'が'},{t:'これ',k:'n',pt:'は'},{t:'する',k:'v'},{t:'です',k:'e',alts:['です','ます']},{t:'います',k:'e',alts:['います','します']}];
 const PT_OPTS=['は','が','の','に','を','も','と','へ','で'];
 const isConn=k=>k==='e';
 const KIND_ORDER=['n','v','a','d','e'];
@@ -1301,7 +1301,7 @@ function write(){
     ${ptRow}
     ${altRow}
     ${cutRow}</div>
-    <p class="note">並べたカードはつかんで動かすと順番を入れ替えられます。選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったり(ボタン/キーボードを選べます)できます。「いつものカード」は削れませんが、助詞を選び直せ、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
+    <p class="note">並べたカードはつかんで動かすと順番を入れ替えられます。選ぶと、助詞をはずしたり、言葉を先頭や末尾から削ったり(ボタン/キーボードを選べます)できます。「いつものカード」は削れませんが、助詞を選び直せ、「です」は「ます」に、「います」は「します」にも変えられます。「食べる」の末尾を削って「ます」をつける、などにも使えます。</p>
     ${GROUPS.map(([lab,f])=>`<div class="lab">${lab}</div><div class="chips">${avail(f).map(c=>chip(c,`data-a="hand" data-id="${c.id}"`)).join('')||'<span class="ph">(使いきり)</span>'}</div>`).join('')}
     ${ngLine?'<p class="note" style="color:var(--bad,#e5484d);font-weight:700">配信向けではない表現になっています。言葉を変えてね</p>':''}
     <button class="btn" data-a="submit" ${needOK(L.line.length)&&!ngLine?'':'disabled'}>${ngLine?'この組み合わせは出せません':needOK(L.line.length)?'これでいく!':S.exact?(L.line.length<S.exact?`あと${S.exact-L.line.length}枚(ちょうど${S.exact}枚)`:`${L.line.length-S.exact}枚多いよ(ちょうど${S.exact}枚)`):`あと${(S.minC||1)-L.line.length}枚つなげよう(${S.minC||1}枚以上)`}</button>`;
