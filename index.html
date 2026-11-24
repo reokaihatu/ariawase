@@ -64,6 +64,7 @@ h1,h2,h3,p{margin:0}
 .cutrow .cutprev{font-family:var(--f-serif);font-weight:800;font-size:22px;color:var(--ink);margin-right:6px}
 .cutrow .cutprev s{color:var(--pink);opacity:.6}
 .cutrow .cutmode{flex:1 1 100%;display:flex;gap:5px;align-items:center}
+.cutrow .cutmode .cutreset{margin-left:auto}
 .cutrow .cutmode button.on{background:var(--sun);color:var(--paper-ink);border-color:var(--sun)}
 .cutrow .cutin{flex:1 1 100%;min-width:0;background:var(--bg);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:6px 10px;font:800 18px var(--f-serif);outline:none}
 .cutrow .cutin:focus{border-color:var(--sun)}
@@ -1277,7 +1278,7 @@ function write(){
       const a=chars(sc),ch=sc.h||0,ct=sc.tl||0,n=a.length;
       const prev=a.map((x,i)=>i<ch||i>=n-ct?`<s>${esc(x)}</s>`:esc(x)).join('');
       const b=(w,v,l,dis)=>`<button data-a="cut" data-w="${w}" data-v="${v}" ${dis?'disabled':''}>${l}</button>`;
-      cutRow=`<div class="cutrow" aria-label="言葉をカット"><div class="cutmode" role="group" aria-label="削り方"><span>削り方</span><button class="${CUTKB?'':'on'}" data-a="cutmode" data-v="btn">ボタン</button><button class="${CUTKB?'on':''}" data-a="cutmode" data-v="kb">キーボード</button></div>${CUTKB?`<input id="cutin" class="cutin" value="${esc(cardBody(sc))}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="キーボードで削る(消した文字だけ打ち直せます)"><span class="cuthint">削除キーで先頭か末尾から消せます。消した文字だけ打ち直せます</span>`:''}<span class="cutprev">${prev}</span>${CUTKB?'':`<span>先頭</span>${b('h',1,'削る',ch+ct>=n-1)}${b('h',-1,'戻す',ch<=0)}<span>末尾</span>${b('t',1,'削る',ch+ct>=n-1)}${b('t',-1,'戻す',ct<=0)}`}</div>`;
+      cutRow=`<div class="cutrow" aria-label="言葉をカット"><div class="cutmode" role="group" aria-label="削り方"><span>削り方</span><button class="${CUTKB?'':'on'}" data-a="cutmode" data-v="btn">ボタン</button><button class="${CUTKB?'on':''}" data-a="cutmode" data-v="kb">キーボード</button><button class="cutreset" data-a="cutreset" ${ch+ct>0?'':'disabled'}>↺ 削った文字をリセット</button></div>${CUTKB?`<input id="cutin" class="cutin" value="${esc(cardBody(sc))}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="キーボードで削る(消した文字だけ打ち直せます)"><span class="cuthint">削除キーで先頭か末尾から消せます。消した文字だけ打ち直せます</span>`:''}<span class="cutprev">${prev}</span>${CUTKB?'':`<span>先頭</span>${b('h',1,'削る',ch+ct>=n-1)}${b('h',-1,'戻す',ch<=0)}<span>末尾</span>${b('t',1,'削る',ch+ct>=n-1)}${b('t',-1,'戻す',ct<=0)}`}</div>`;
     }
     const pp=pl(S.parent), mini=esc(pText()).replace(/\{P\}/g,`<mark>${esc(pp?pp.name:'?')}</mark>`);
     h+=`<div class="bench" id="bench">${timerH}<div class="mini"><b>お題</b> ${mini}</div>
@@ -1409,6 +1410,7 @@ document.addEventListener('click',e=>{
         if(d.w==='h')h+=dv;else t+=dv;
         if(h>=0&&t>=0&&h+t<=n-1){c.h=h;c.tl=t}}
       render();break}
+    case 'cutreset':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&!c.base){c.h=0;c.tl=0}render();break}
     case 'cutmode':CUTKB=d.v==='kb';try{localStorage.setItem('aw_cutmode',CUTKB?'kb':'btn')}catch(e){}render();break;
     case 'altset':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.alts&&c.alts.includes(d.v)){c.t=d.v;c.h=0;c.tl=0}render();break}
     case 'ptset':{const c=L.sel>=0?L.line[L.sel]:null;if(c&&c.opts){if(d.v==='none')c.on=false;else{c.pt=d.v;c.on=true}}render();break}
