@@ -42,6 +42,14 @@ h1,h2,h3,p{margin:0}
 .bring{display:flex;flex-direction:column;gap:8px}
 .bring .row input{flex:1;min-width:0}
 .hh{font-family:var(--f-disp);font-weight:400;font-size:24px;margin-top:6px}
+.pv{display:flex;gap:8px;align-items:baseline;background:var(--panel);border-left:4px solid var(--sun);border-radius:8px;padding:6px 10px}
+.pv b{flex:none;font-size:11px;color:var(--sun)}
+.pv span{font-family:var(--f-serif);font-weight:800;font-size:17px;line-height:1.45;word-break:break-all}
+#imgov{position:fixed;inset:0;z-index:90;background:rgba(10,9,14,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px}
+#imgov img{max-width:100%;max-height:68vh;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.6);background:#17161d}
+#imgov .row{display:flex;gap:10px}
+#imgov p{margin:0;color:var(--mute);font-size:12px}
+.hist .hbtn{margin-top:4px}
 .hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .hist li{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 14px}
 .hist small{color:var(--mute);font-size:12px}
@@ -1215,8 +1223,8 @@ function histHTML(){
   const n=S.nh||0;if(!n)return '';
   const items=histItems(), ids=Object.keys(items).map(Number).sort((a,b)=>a-b);
   return `<h2 class="hh">各ラウンドの優勝文</h2>
-  <ol class="hist">${ids.map(i=>{const e=items[i];return `<li><small>第${e.r}ラウンド ・ ${esc(e.q)}</small><p>${esc(e.t)}</p><span class="by">${esc(e.n)}</span></li>`}).join('')}</ol>
-  ${ids.length<n?`<p class="note">受信中… ${ids.length} / ${n}</p>`:`<button class="btn ghost sm" data-a="copyhist">優勝文をコピー</button>`}`;
+  <ol class="hist">${ids.map(i=>{const e=items[i];return `<li><small>第${e.r}ラウンド ・ ${esc(e.q)}</small><p>${esc(e.t)}</p><span class="by">${esc(e.n)}</span> <button class="btn ghost sm hbtn" data-a="histimg" data-i="${i}">🖼 画像にする</button></li>`}).join('')}</ol>
+  ${ids.length<n?`<p class="note">受信中… ${ids.length} / ${n}</p>`:`<div class="row"><button class="btn ghost sm" data-a="copyhist">優勝文をコピー</button><button class="btn ghost sm" data-a="histimg" data-i="all">🖼 全部を1枚の画像に</button></div>`}`;
 }
 function lobby(){
   if(LV!==null)return listView();
@@ -1283,6 +1291,7 @@ function write(){
     const pp=pl(S.parent), mini=esc(pText()).replace(/\{P\}/g,`<mark>${esc(pp?pp.name:'?')}</mark>`);
     h+=`<div class="bench" id="bench">${timerH}<div class="mini"><b>お題</b> ${mini}</div>
     <div class="line" aria-label="作る一言">${L.line.length?L.line.map((c,i)=>chip(c,`data-a="lsel" data-i="${i}"`).replace('class="chip ',`class="chip ${i===L.sel?'sel ':''}`)).join(''):'<span class="ph">下のカードをタップして並べよう</span>'}</div>
+    ${L.line.length?`<div class="pv" aria-live="polite"><b>プレビュー</b><span>${esc(L.line.map(cardText).join(''))}</span></div>`:''}
     <div class="ctl">
       <button class="btn ghost sm" data-a="lleft" ${L.sel>0?'':'disabled'}>◀ 前へ</button>
       <button class="btn ghost sm" data-a="lright" ${L.sel>=0&&L.sel<L.line.length-1?'':'disabled'}>後ろへ ▶</button>
@@ -1392,6 +1401,7 @@ document.addEventListener('click',e=>{
     case 'bringadd':bringAdd();break;
     case 'bringclr':if(S&&S.phase==='lobby'&&!isSpec()){BR.mine=[];bringSave();reliable('bringclr',{},()=>S.phase!=='lobby'||!(S.bn&&S.bn[me.pid]))}render();break;
     case 'copyhist':copyHist();break;
+    case 'histimg':histImgClick(d.i);break;
     case 'minc':if(isHost&&S.phase==='lobby'&&[1,2,3,4,5,6].includes(+d.v)){S.minC=+d.v;pub()}break;
     case 'secs':if(isHost){S.secs=+d.v;pub()}break;
     case 'gen':if(isHost&&S.phase==='lobby'){const i=S.gs.indexOf(d.v);if(i>=0){if(S.gs.length>1)S.gs.splice(i,1)}else S.gs.push(d.v);pub()}break;
@@ -1462,6 +1472,66 @@ document.addEventListener('pointerup',dragEnd);
 document.addEventListener('pointercancel',dragEnd);
 document.addEventListener('click',e=>{if(DRAGSUP){e.stopImmediatePropagation();e.preventDefault();DRAGSUP=false}},true);
 document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('.line [data-a="lsel"]'))e.preventDefault()});
+/* 優勝文の画像化(canvasで描いて、プレビューを出し、共有・保存できる) */
+async function histImage(list){
+  try{await Promise.all([document.fonts.load('800 40px "Shippori Mincho B1"'),document.fonts.load('700 28px "Zen Maru Gothic"'),document.fonts.load('900 40px "Dela Gothic One"')])}catch(e){}
+  const W=1080,P=64,SER='"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif',SANS='"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif',DISP='"Dela Gothic One","Zen Maru Gothic",sans-serif';
+  const cv=document.createElement('canvas'),g=cv.getContext('2d');
+  const wrap=(txt,font,maxW)=>{g.font=font;const out=[];let cur='';for(const ch of Array.from(String(txt))){if(cur&&g.measureText(cur+ch).width>maxW){out.push(cur);cur=ch}else cur+=ch}if(cur)out.push(cur);return out};
+  const single=list.length===1, inner=W-P*2-72;
+  const blocks=list.map(e=>{
+    const fs=single?(e.t.length>44?50:e.t.length>26?60:72):42, lh=Math.round(fs*1.5);
+    const qf=`700 ${single?30:24}px ${SANS}`, ql=wrap(`第${e.r}ラウンド ・ ${e.q}`,qf,W-P*2);
+    const tf=`800 ${fs}px ${SER}`, tl=wrap(e.t,tf,inner);
+    const cardH=tl.length*lh+(single?150:112), qlh=single?44:36;
+    return {e,fs,lh,qf,ql,tf,tl,cardH,qlh,h:ql.length*qlh+16+cardH};
+  });
+  const headH=single?250:250, footH=110, gap=single?0:40;
+  let H=headH+blocks.reduce((s,b)=>s+b.h,0)+gap*(blocks.length-1)+footH;
+  if(single)H=Math.max(H,1080);
+  cv.width=W;cv.height=H;
+  g.fillStyle='#17161d';g.fillRect(0,0,W,H);
+  const rr=(x,y,w,h,r)=>{g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()};
+  g.textBaseline='alphabetic';g.textAlign='left';
+  g.fillStyle='#ffd23f';g.font=`400 76px ${DISP}`;g.fillText('ありあわせ',P,P+84);
+  g.fillStyle='#a39fb3';g.font=`700 30px ${SANS}`;g.fillText(single?'今日の優勝文':'各ラウンドの優勝文',P,P+140);
+  let y=headH+(single?Math.max(0,(H-headH-footH-blocks[0].h)/2):0);
+  blocks.forEach(b=>{
+    g.fillStyle='#a39fb3';g.font=b.qf;b.ql.forEach((l,i)=>g.fillText(l,P,y+(i+1)*b.qlh-8));
+    y+=b.ql.length*b.qlh+16;
+    g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=24;g.shadowOffsetY=8;g.fillStyle='#f6f0e2';rr(P,y,W-P*2,b.cardH,18);g.fill();g.restore();
+    g.fillStyle='#1d1a16';g.font=b.tf;b.tl.forEach((l,i)=>g.fillText(l,P+36,y+(single?50:36)+(i+1)*b.lh-b.lh*0.2));
+    g.fillStyle='#c0275a';g.font=`900 ${single?36:30}px ${SANS}`;g.textAlign='right';g.fillText('— '+b.e.n,W-P-36,y+b.cardH-(single?34:26));g.textAlign='left';
+    y+=b.cardH+gap;
+  });
+  g.fillStyle='#6f6b80';g.font=`700 26px ${SANS}`;g.textAlign='center';g.fillText('ありあわせ — 手札の言葉でつくる一言ゲーム',W/2,H-48);
+  return await new Promise(res=>cv.toBlob(res,'image/png'));
+}
+async function showImage(list){
+  toast('画像をつくっています…');
+  let blob=null;try{blob=await histImage(list)}catch(e){}
+  if(!blob){toast('画像をつくれませんでした');return}
+  const tt=$('#toast');if(tt)tt.classList.remove('show');
+  const url=URL.createObjectURL(blob),name='ありあわせ_優勝文.png';
+  const old=document.getElementById('imgov');if(old)old.remove();
+  const ov=document.createElement('div');ov.id='imgov';
+  ov.innerHTML=`<img alt="優勝文の画像" src="${url}"><div class="row"><button class="btn sm" id="imgsave">共有・保存</button><button class="btn ghost sm" id="imgclose">閉じる</button></div><p>スマホは画像を長押しでも保存できます</p>`;
+  document.body.appendChild(ov);
+  const close=()=>{ov.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+  ov.querySelector('#imgclose').onclick=close;
+  ov.addEventListener('click',e=>{if(e.target===ov)close()});
+  ov.querySelector('#imgsave').onclick=async()=>{
+    const f=new File([blob],name,{type:'image/png'});
+    try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'ありあわせ'});return}}catch(e){if(e&&e.name==='AbortError')return}
+    const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();toast('保存しました');
+  };
+}
+function histImgClick(i){
+  const items=histItems(),ids=Object.keys(items).map(Number).sort((a,b)=>a-b);
+  const list=i==='all'?ids.map(k=>items[k]):(items[+i]?[items[+i]]:[]);
+  if(list.length)showImage(list);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const o=document.getElementById('imgov');if(o)o.remove()}});
 /* キーボードで削る: 元のカードの文字の「連続した一部」になっているときだけ受け付ける(先頭・末尾から消す/消した文字を打ち直す) */
 function cutTyped(inp){
   const c=L.sel>=0?L.line[L.sel]:null;if(!c||c.base)return;
