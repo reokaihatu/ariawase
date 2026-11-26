@@ -1578,7 +1578,7 @@ function end(){
   const rs=S.players.slice().sort((a,b)=>b.score-a.score);
   let rank=0,prev=null;
   return `${head()}
-  <h2 style="font-family:var(--f-disp);font-weight:400;font-size:30px">けっか発表</h2>
+  <h2 style="font-family:var(--f-disp);font-weight:400;font-size:30px">結果発表</h2>
   ${S.endWhy?`<p class="note">${esc(S.endWhy)}</p>`:''}
   <div class="rows">${rs.map((p,i)=>{if(p.score!==prev){rank=i+1;prev=p.score}return `<div class="rank${rank===1?' first':''}"><span class="n">${rank}</span><span class="nm">${esc(p.name)}${p.pid===me.pid?' (あなた)':''}</span><span class="sc">${p.score}</span></div>`}).join('')}</div>
   ${histHTML()}
