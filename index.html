@@ -167,6 +167,9 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 /* 審査・結果 */
 .lead{font-size:15px}
 .subs{display:flex;flex-direction:column;gap:14px}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:85}
+#fxbn{position:fixed;left:50%;top:30%;z-index:86;transform:translateX(-50%);font-family:var(--f-disp);font-size:38px;color:var(--sun);text-shadow:0 4px 0 rgba(0,0,0,.55),0 0 28px rgba(255,210,63,.6);white-space:nowrap;pointer-events:none;opacity:0;animation:fxbn 4s ease forwards}
+@keyframes fxbn{0%{opacity:0;transform:translateX(-50%) scale(.4)}12%{opacity:1;transform:translateX(-50%) scale(1.18)}22%{transform:translateX(-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-10px)}}
 .rooms{display:flex;flex-direction:column;gap:8px}
 .rooms .note{margin:0}
 .who{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
@@ -689,7 +692,17 @@ const BGM=(()=>{
     vol=Math.max(0,Math.min(200,Math.round(+v||0)));
     if(ac&&master&&on){const t=ac.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(tgt(),t+.08)}
   }
-  return {start,stop,level,isOn:()=>on,setVol,getVol:()=>vol};
+  function pop(){                       // クラッカーの「パン!」(BGMをオンにしている人にだけ鳴る)
+    if(!on||!ac)return;
+    const t=ac.currentTime,k=Math.min(1.6,vol/100);
+    const src=ac.createBufferSource();src.buffer=noise;const g=ac.createGain();
+    g.gain.setValueAtTime(.5*k,t);g.gain.exponentialRampToValueAtTime(.001,t+.16);
+    const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=900;
+    src.connect(hp);hp.connect(g);g.connect(ac.destination);src.start(t);
+    const o=ac.createOscillator(),og=ac.createGain();o.type='triangle';o.frequency.setValueAtTime(760,t);o.frequency.exponentialRampToValueAtTime(180,t+.12);
+    og.gain.setValueAtTime(.32*k,t);og.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(og);og.connect(ac.destination);o.start(t);o.stop(t+.16);
+  }
+  return {start,stop,level,pop,isOn:()=>on,setVol,getVol:()=>vol};
 })();
 window.__bgm=BGM;
 (function(){
@@ -1005,6 +1018,78 @@ function copyHist(){
   if(!lines.length)return;
   const txt='【ありあわせ 各ラウンドの優勝文】\n'+lines.join('\n\n');
   try{navigator.clipboard.writeText(txt).then(()=>toast('コピーしました'),()=>toast('コピーできませんでした'))}catch(e){toast('コピーできませんでした')}
+}
+/* ===== 優勝のクラッカー演出(最終ポイントが最多の人の画面に、結果発表のタイミングで1回だけ) ===== */
+const FX={cv:null,raf:0,ts:[]};
+let FXKEY='';
+function fxStop(){
+  cancelAnimationFrame(FX.raf);FX.raf=0;FX.ts.forEach(clearTimeout);FX.ts=[];
+  if(FX.cv){FX.cv.remove();FX.cv=null}
+  const b=document.getElementById('fxbn');if(b)b.remove();
+}
+function fxCracker(label){
+  try{if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch(e){}
+  fxStop();
+  const cv=document.createElement('canvas');cv.id='fx';document.body.appendChild(cv);FX.cv=cv;
+  const dpr=Math.min(2,window.devicePixelRatio||1),W=innerWidth,Hh=innerHeight;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(Hh*dpr);
+  const g=cv.getContext('2d');g.scale(dpr,dpr);
+  const COL=['#ffd23f','#ff6b9d','#5eead4','#7dd3fc','#c4b5fd','#fb923c','#ffffff'];
+  const R=(a,b)=>a+Math.random()*(b-a),ps=[],pops=[];
+  const add=(x,y,vx,vy,kind,life)=>ps.push({x,y,vx,vy,kind,life,age:0,c:COL[Math.floor(Math.random()*COL.length)],w:R(8,14),h:R(4,7),rot:R(0,6.28),vr:R(-9,9),fp:R(0,6.28),ff:R(6,12),trail:[]});
+  function burst(ox,oy,dir,n){
+    pops.push({x:ox,y:oy,age:0});try{BGM.pop()}catch(e){}
+    for(let i=0;i<n;i++){
+      const a=dir+R(-.5,.5),sp=R(650,1300),r=Math.random();
+      add(ox,oy,Math.cos(a)*sp,Math.sin(a)*sp,r<.6?'rect':r<.8?'dot':'str',r>=.8?R(2.2,3.2):R(3.2,5.2));
+    }
+  }
+  const at=(ms,f)=>FX.ts.push(setTimeout(f,ms));
+  burst(W*.08,Hh-14,-1.15,70);burst(W*.92,Hh-14,-(Math.PI-1.15),70);
+  at(450,()=>{burst(W*.04,Hh-14,-1.0,60);burst(W*.96,Hh-14,-(Math.PI-1.0),60)});
+  at(1000,()=>burst(W*.5,Hh-14,-Math.PI/2,90));
+  let rain=0;at(1300,()=>{rain=1});at(4600,()=>{rain=0});
+  const bn=document.createElement('div');bn.id='fxbn';bn.textContent=label;document.body.appendChild(bn);
+  let last=performance.now(),t0=last;
+  function frame(now){
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    if(rain)for(let i=0;i<2;i++)add(R(0,W),-20,R(-40,40),R(80,220),Math.random()<.85?'rect':'dot',R(4,6));
+    g.clearRect(0,0,W,Hh);
+    for(let i=ps.length-1;i>=0;i--){
+      const p=ps[i];p.age+=dt;
+      if(p.age>p.life||p.y>Hh+40){ps.splice(i,1);continue}
+      const k=Math.exp(-1.7*dt);p.vx*=k;p.vy=p.vy*k+900*dt;
+      p.x+=p.vx*dt;p.y+=p.vy*dt;p.rot+=p.vr*dt;
+      const al=Math.min(1,(p.life-p.age)/.6);g.globalAlpha=al;g.fillStyle=p.c;g.strokeStyle=p.c;
+      if(p.kind==='str'){
+        p.trail.push([p.x,p.y]);if(p.trail.length>11)p.trail.shift();
+        g.lineWidth=4;g.lineCap='round';g.beginPath();p.trail.forEach(([x,y],j)=>j?g.lineTo(x,y):g.moveTo(x,y));g.stroke();
+      }else if(p.kind==='dot'){g.beginPath();g.arc(p.x,p.y,p.h*.7,0,6.283);g.fill()}
+      else{g.save();g.translate(p.x,p.y);g.rotate(p.rot);g.scale(1,Math.cos(p.fp+p.age*p.ff));g.fillRect(-p.w/2,-p.h/2,p.w,p.h);g.restore()}
+    }
+    g.globalAlpha=1;
+    for(let i=pops.length-1;i>=0;i--){                       // クラッカーの口の「🎉」
+      const o=pops[i];o.age+=dt;if(o.age>.55){pops.splice(i,1);continue}
+      const sc=o.age<.12?o.age/.12:1,al=o.age<.35?1:(.55-o.age)/.2;
+      g.globalAlpha=al;g.font=`${Math.round(46*(.6+sc*.6))}px serif`;g.textAlign='center';g.textBaseline='middle';g.fillText('🎉',Math.min(W-26,Math.max(26,o.x)),Hh-40-sc*14);
+    }
+    g.globalAlpha=1;
+    if((now-t0>1400&&!rain&&!ps.length)||now-t0>9000){fxStop();return}
+    FX.raf=requestAnimationFrame(frame);
+  }
+  FX.raf=requestAnimationFrame(frame);
+  at(4200,()=>{const b=document.getElementById('fxbn');if(b)b.remove()});
+}
+function fxCheck(){
+  if(!S||S.phase!=='end'){if(FXKEY){FXKEY='';fxStop()}return}
+  const key=S.code+':'+(S.rk||0);if(FXKEY===key)return;
+  FXKEY=key;
+  if(S.endWhy||!pl(me.pid))return;                                       // 途中で終わったゲームと、観戦の人は対象外
+  const top=Math.max(...S.players.map(p=>p.score));
+  const mine=pl(me.pid);
+  if(!mine||top<=0||mine.score!==top)return;
+  const tied=S.players.filter(p=>p.score===top).length>1;
+  fxCracker(tied?'🏆 同点優勝!':'🏆 優勝おめでとう!');
 }
 /* ===== ホストの引き継ぎ =====
    ホストの状態が途絶えたら、参加者の中の「次の人」が新しいホストになる。順番は参加者リスト順(元ホストの次の人から)。
@@ -1511,6 +1596,7 @@ function render(){
   const bi=$('#bringin'),keep=bi?{v:bi.value,f:document.activeElement===bi,s:bi.selectionStart}:null;   // 入力中のお題は消さない
   const ci=$('#cutin'),ckeep=ci&&document.activeElement===ci?{s:ci.selectionStart}:null;
   $('#app').innerHTML=view();
+  fxCheck();
   if(!S&&screen==='home'&&LB.on)lbDraw();
   if(ckeep){const n=$('#cutin');if(n){n.focus();try{const k=Math.min(ckeep.s,n.value.length);n.setSelectionRange(k,k)}catch(e){}}}
   if(keep){const n=$('#bringin');if(n){n.value=keep.v;if(keep.f){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}}
