@@ -167,6 +167,8 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 /* 審査・結果 */
 .lead{font-size:15px}
 .subs{display:flex;flex-direction:column;gap:14px}
+.rooms{display:flex;flex-direction:column;gap:8px}
+.rooms .note{margin:0}
 .who{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
 .who b{font-size:11px;color:var(--sun)}
 .who span{padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
@@ -456,8 +458,8 @@ const TE=new TextEncoder(),TD=new TextDecoder();
 const mqStr=s=>{const b=TE.encode(s);return [b.length>>8,b.length&255,...b]};
 const mqLen=n=>{const o=[];do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;o.push(d)}while(n>0);return o};
 const mqPkt=(first,body)=>Uint8Array.from([first,...mqLen(body.length),...body]);
-function mqttRoom(code){
-  const topic='arioawase/v1/'+code, peer='q'+Math.random().toString(36).slice(2,10), hs={};
+function mqttRoom(code,opt){
+  const topic='arioawase/v1/'+code, subT=(opt&&opt.sub)||topic, peer='q'+Math.random().toString(36).slice(2,10), hs={};
   let ws=null, ready=false, left=false, bi=0, pingT=null, buf=new Uint8Array(0), pid=1, firstDone=false, firstOK=null, firstNG=null;
   const api={
     name:code,
@@ -465,6 +467,7 @@ function mqttRoom(code){
       if(!ready||!ws||ws.readyState!==1)return;                    // 切れている間は捨てる(ホストの再送で回復する)
       ws.send(mqPkt(0x30,[...mqStr(topic),...TE.encode(JSON.stringify({p:peer,k,d}))]));
     },
+    pubTo:async(t,k,d)=>{if(!ready||!ws||ws.readyState!==1)return;ws.send(mqPkt(0x30,[...mqStr('arioawase/v1/'+t),...TE.encode(JSON.stringify({p:peer,k,d}))]))},   // 別のトピックへ流す(募集中の部屋の一覧用)
     on:(k,f)=>{(hs[k]=hs[k]||[]).push(f);return()=>{hs[k]=(hs[k]||[]).filter(x=>x!==f)}},
     leave:async()=>{left=true;ready=false;clearInterval(pingT);try{ws&&ws.close()}catch(e){}},
     connected:()=>ready
@@ -472,7 +475,7 @@ function mqttRoom(code){
   function onPacket(first,body){
     const type=first>>4;
     if(type===2){                                                   // CONNACK
-      if(body[1]===0){ws.send(mqPkt(0x82,[pid>>8&255,pid&255,...mqStr(topic),0]));pid=(pid%65535)+1}
+      if(body[1]===0){ws.send(mqPkt(0x82,[pid>>8&255,pid&255,...mqStr(subT),0]));pid=(pid%65535)+1}
       else ws.close();
     }else if(type===9){                                             // SUBACK
       ready=true;clearInterval(pingT);const w=ws;
@@ -1010,10 +1013,11 @@ async function openNet(code){
   return n;
 }
 async function hostCreate(solo){
+  lbStop();
   me.name=cleanName($('#name').value);store('name',me.name);
   isHost=true;screen='game';
   const code=genCode();
-  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],specs:[],exact:0,bring:0,bn:{},nh:0,cp:null,cb:null,pk:-1,endWhy:'',laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
+  S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],specs:[],pub:0,exact:0,bring:0,bn:{},nh:0,cp:null,cb:null,pk:-1,endWhy:'',laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
   H={texts:{},claps:{},subs:[],timers:[],order:[],seen:{},ghost:{},bp:[],hist:[]};
   if(solo){addBot();addBot();addBot()}
   startLoops();pub();
@@ -1023,14 +1027,57 @@ async function hostCreate(solo){
   if(!net&&!solo)toast('オンラインに接続できないため、ボット戦だけ遊べます');
   render();
 }
+/* ===== 募集中の部屋 =====
+   ホストが「公開」にした間だけ、ホスト名と部屋コードを数秒おきに流す。ホーム画面で「さがす」を押した人だけが、それを受け取って一覧にする。
+   一覧に出るのはホスト名だけ(コードは入るための印として裏で使う)。 */
+const LB={on:false,n:null,rooms:{},t:null,msg:''}, LP={n:null,busy:false,sent:false,code:''};
+function lbUI(){const b=document.querySelector('[data-a=findrooms]');if(b)b.textContent=LB.on?'さがすのをやめる':'募集中の部屋をさがす';lbDraw()}
+function lbDraw(){
+  const el=$('#roomlist');if(!el)return;
+  if(!LB.on){el.innerHTML='';return}
+  const list=Object.entries(LB.rooms).filter(([c,r])=>Date.now()-r.t<14000);
+  el.innerHTML=list.length?list.map(([c,r])=>`<button class="btn alt" data-a="joinroom" data-c="${esc(c)}">${esc(r.n)} の部屋に入る</button>`).join(''):`<p class="note">${LB.msg||'いまは募集中の部屋がありません。ホストが「公開」にすると、ここに出ます。'}</p>`;
+}
+async function lbStart(){
+  if(LB.on)return;
+  LB.on=true;LB.rooms={};LB.msg='さがしています…';lbUI();
+  try{
+    const n=await mqttRoom('lobby',{sub:'arioawase/v1/lobby/+'});
+    if(!LB.on){n.leave();return}
+    LB.n=n;LB.msg='';
+    n.on('lb',m=>{const d=m.data;if(d&&typeof d.c==='string'&&/^[a-z0-9]{4}$/.test(d.c)&&typeof d.n==='string'){LB.rooms[d.c]={n:cleanName(d.n)||'?',t:Date.now()};lbDraw()}});
+    n.on('lbx',m=>{const d=m.data;if(d&&d.c){delete LB.rooms[d.c];lbDraw()}});
+    LB.t=setInterval(lbDraw,2000);lbDraw();
+  }catch(e){if(LB.on){LB.msg='つながりませんでした。もう一度押してください';lbUI()}}
+}
+function lbStop(){
+  const was=LB.on;LB.on=false;clearInterval(LB.t);LB.t=null;
+  if(LB.n){try{LB.n.leave()}catch(e){}LB.n=null}
+  LB.rooms={};LB.msg='';if(was)lbUI();
+}
+async function lpEnsure(){
+  if(LP.n||LP.busy)return;
+  LP.busy=true;
+  try{LP.n=await mqttRoom('lobbypub',{sub:'arioawase/v1/lobby/_none'})}catch(e){}
+  LP.busy=false;
+}
+function lpBeat(){
+  const want=isHost&&S&&S.phase==='lobby'&&S.pub&&S.players.length<MAXP;
+  if(!want){
+    if(LP.n){const n=LP.n;LP.n=null;if(LP.sent)n.pubTo('lobby/'+LP.code,'lbx',{c:LP.code});LP.sent=false;setTimeout(()=>{try{n.leave()}catch(e){}},400)}
+    return;
+  }
+  lpEnsure().then(()=>{if(LP.n&&S){LP.code=S.code;LP.sent=true;const h=pl(S.hostPid);LP.n.pubTo('lobby/'+S.code,'lb',{c:S.code,n:h?h.name:me.name})}});
+}
 function startLoops(){
   stopLoops();
   loops.push(setInterval(hostTick,500));
   loops.push(setInterval(()=>{if(S){S.hostNow=Date.now();emitState();emitChat();if(S.phase==='result'||S.phase==='end')emitHist()}},2000));
   loops.push(setInterval(watchdog,1000));
+  loops.push(setInterval(lpBeat,4000));
 }
 async function joinRoom(opt){
-  opt=opt||{};
+  opt=opt||{};lbStop();
   const code=(opt.code||($('#code')&&$('#code').value)||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   if(code.length<4){toast('4文字のコードを入れてね');return}
   if(!opt.auto){me.name=cleanName($('#name').value);store('name',me.name)}
@@ -1068,7 +1115,7 @@ function leave(){
   sdel('room');sdel('hsnap');wantSpec=false;HB=null;{const w=$('#netwarn');if(w)w.hidden=true}
   stopLoops();if(H)clearTimers();
   try{net&&net.leave()}catch(e){}
-  net=null;S=null;H=null;isHost=false;screen='home';skew=0;CH={code:'',list:[],unread:0,open:false,drawn:-1};
+  net=null;lpBeat();S=null;H=null;isHost=false;screen='home';skew=0;CH={code:'',list:[],unread:0,open:false,drawn:-1};
   L={round:-2,hand:[],line:[],sel:-1,submitted:false,myText:'',clap:null,pickSel:null};
   render();
 }
@@ -1170,6 +1217,8 @@ function home(){
       <button class="btn alt" data-a="join">入る</button>
     </div>
     <button class="btn ghost" data-a="watch">観戦で入る(上にコードを入れてね)</button>
+    <button class="btn ghost" data-a="findrooms">${LB.on?'さがすのをやめる':'募集中の部屋をさがす'}</button>
+    <div id="roomlist" class="rooms"></div>
     <button class="btn ghost" data-a="solo">ひとりで試す(ボット3人)</button>
     <p class="note" id="netstat">${netText()}</p>
     ${addHint()}
@@ -1260,6 +1309,8 @@ function lobby(){
     <div class="seg"><span>お題の<br>ジャンル</span>${Object.entries(GENRES).map(([k,g])=>`<button class="${S.gs.includes(k)?'on':''}" ${host?`data-a="gen" data-v="${k}"`:'disabled'}>${esc(g.name)}</button>`).join('')}</div>
     <p class="note">${PROMPTS.filter(p=>S.gs.includes(p[0])).length}個のお題から出ます。${host?'タップで選ぶ・外す(1つは残ります)':''}</p>
     <button class="btn ghost sm" data-a="qlist">お題の一覧を見る</button>
+    <div class="seg"><span>参加者の<br>募集</span>${[[0,'しない'],[1,'公開する']].map(([v,l])=>`<button class="${(S.pub?1:0)===v?'on':''}" ${host?`data-a="pubopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
+    <p class="note">${S.pub?'公開中: ホーム画面の「募集中の部屋をさがす」に、ホスト名だけが出ます。ゲームを始めると、一覧から消えます。':'「公開する」にすると、コードを知らない人が、ホーム画面の一覧からホスト名で部屋を見つけて入れます。'}</p>
     <div class="seg"><span>お題の<br>出し方</span>${[[0,'ふつう'],[1,'持ち寄り']].map(([v,l])=>`<button class="${(S.bring||0)===v?'on':''}" ${host?`data-a="bringopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
     ${S.bring?bringPanel():'<p class="note">「持ち寄り」にすると、みんなが自分でお題を出し合います。</p>'}
     <div class="seg"><span>ウケた点</span>${[[0,'なし'],[1,'あり(+1点)']].map(([v,l])=>`<button class="${S.clapOn===v?'on':''}" ${host?`data-a="clapopt" data-v="${v}"`:'disabled'}>${l}</button>`).join('')}</div>
@@ -1377,6 +1428,7 @@ function render(){
   const bi=$('#bringin'),keep=bi?{v:bi.value,f:document.activeElement===bi,s:bi.selectionStart}:null;   // 入力中のお題は消さない
   const ci=$('#cutin'),ckeep=ci&&document.activeElement===ci?{s:ci.selectionStart}:null;
   $('#app').innerHTML=view();
+  if(!S&&screen==='home'&&LB.on)lbDraw();
   if(ckeep){const n=$('#cutin');if(n){n.focus();try{const k=Math.min(ckeep.s,n.value.length);n.setSelectionRange(k,k)}catch(e){}}}
   if(keep){const n=$('#bringin');if(n){n.value=keep.v;if(keep.f){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}}
   tick();
@@ -1414,6 +1466,9 @@ document.addEventListener('click',e=>{
     case 'qtab':if(S&&S.phase==='lobby'&&GENRES[d.v]){LV=d.v;render()}break;
     case 'qback':LV=null;render();break;
     case 'exact':if(isHost&&S.phase==='lobby'&&[0,1,2,3,4,5,6].includes(+d.v)){S.exact=+d.v;pub()}break;
+    case 'findrooms':if(LB.on)lbStop();else lbStart();break;
+    case 'joinroom':joinRoom({code:d.c});break;
+    case 'pubopt':if(isHost&&S.phase==='lobby'){S.pub=+d.v?1:0;pub();lpBeat()}break;
     case 'bringopt':if(isHost&&S.phase==='lobby'){S.bring=+d.v?1:0;pub()}break;
     case 'bringadd':bringAdd();break;
     case 'bringclr':if(S&&S.phase==='lobby'&&!isSpec()){BR.mine=[];bringSave();reliable('bringclr',{},()=>S.phase!=='lobby'||!(S.bn&&S.bn[me.pid]))}render();break;
