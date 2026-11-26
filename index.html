@@ -444,7 +444,7 @@ let isHost=false, net=null, skew=0, screen='home', loops=[];
 let L={round:-2,hand:[],line:[],sel:-1,submitted:false,myText:'',clap:null,pickSel:null};
 let cid=0;
 const HB_MS=4000, DROP_MS=(typeof window!=='undefined'&&window.__AW_DROP)||16000, SILENCE_MS=(typeof window!=='undefined'&&window.__AW_SILENCE)||35000;   // 心拍の間隔 / これだけ無音なら退室扱い
-const BMAX=2;                                                                       // 持ち寄りお題は1人2個まで
+const BMAX=2, TAKE_MS=(typeof window!=='undefined'&&window.__AW_TAKE)||12000;   // ホストの応答が途絶えてから、引き継ぎに動き出すまで                                                                       // 持ち寄りお題は1人2個まで
 let wantSpec=false, lastRx=Date.now(), HB=null;                                     // 観戦で入ったか / ホストからの最後の受信 / 優勝文の受信分
 const BR={code:'',mine:[],t:0};                                                     // 自分が出した持ち寄りお題
 const sdel=k=>{try{sessionStorage.removeItem(k)}catch(e){}};
@@ -526,7 +526,28 @@ const netText=()=>roomOK===null?'オンラインを確認中…':'オンライ�
 
 /* ================= 通信 ================= */
 const pl=pid=>S&&S.players.find(p=>p.pid===pid);
-function pub(){S.v++;S.hostNow=Date.now();emitState();after();saveSnap()}
+function pub(){S.v++;S.hostNow=Date.now();emitState();after();saveSnap();saveSet()}
+/* ホストの部屋の設定は、端末に覚えておいて、次に部屋をつくるときに引き継ぐ(公開募集だけは毎回「しない」から) */
+const SET_KEY='aw_host_set';
+const defSet=()=>({laps:1,secs:45,minC:1,clapOn:0,exact:0,bring:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off)});
+function saveSet(){
+  if(!isHost||!S||S.phase!=='lobby')return;
+  try{localStorage.setItem(SET_KEY,JSON.stringify({laps:S.laps,secs:S.secs,minC:S.minC,clapOn:S.clapOn,exact:S.exact,bring:S.bring,gs:S.gs}))}catch(e){}
+}
+function loadSet(){
+  let o=null;try{o=JSON.parse(localStorage.getItem(SET_KEY)||'null')}catch(e){}
+  if(!o||typeof o!=='object')return;
+  const d=defSet(),n=Object.assign({},d);
+  if([1,2,3].includes(o.laps))n.laps=o.laps;
+  if([30,45,60,90].includes(o.secs))n.secs=o.secs;
+  if(Number.isInteger(o.minC)&&o.minC>=1&&o.minC<=6)n.minC=o.minC;
+  if(o.clapOn===0||o.clapOn===1)n.clapOn=o.clapOn;
+  if(Number.isInteger(o.exact)&&o.exact>=0&&o.exact<=6)n.exact=o.exact;
+  if(o.bring===0||o.bring===1)n.bring=o.bring;
+  if(Array.isArray(o.gs)){const g=o.gs.filter(k=>k in GENRES);if(g.length)n.gs=g}
+  Object.assign(S,n);
+  S.kept=JSON.stringify(n)!==JSON.stringify(d)?1:0;
+}
 function saveSnap(){
   if(!isHost||!S||!H)return;
   try{sessionStorage.setItem('hsnap',JSON.stringify({t:Date.now(),S:Object.assign({},S,{subs:null}),sub:S.subs,H:{texts:H.texts,claps:H.claps,subs:H.subs,order:H.order,chat:H.chat||[],chatN:H.chatN||0,bp:H.bp||[],hist:H.hist||[],ghost:H.ghost||{}}}))}catch(e){}
@@ -704,10 +725,19 @@ function applySubs(){
 }
 function after(){syncLocal();render()}
 function onState(msg){
-  if(isHost||msg.sameTab)return;
+  if(msg.sameTab)return;
   const d=msg.data;if(!d)return;
+  if(isHost){                                   // 自分より新しい世代のホストが現れたら、参加者に戻る(復帰した元ホストなど)
+    if(d.t==='state'&&d.s&&S&&d.s.code===S.code&&(d.s.epoch||0)>(S.epoch||0)&&d.s.hostPid!==me.pid)stepDown(d.s);
+    return;
+  }
   lastRx=Date.now();
-  if(d.t==='closed'){if(S&&d.code===S.code){leave();toast('ホストが部屋を閉じました')}return}
+  if(d.t==='closed'){
+    if(!S||d.code!==S.code)return;
+    if(d.next&&d.next===me.pid&&pl(me.pid)){takeOver('left');return}      // 去るホストから指名された
+    if(d.next){HANDOVER=Date.now();return}                                  // 別の人が引き継ぐので、待つ
+    leave();toast('ホストが部屋を閉じました');return;
+  }
   if(d.t==='h'){
     if(S&&d.code===S.code&&d.e&&Number.isInteger(d.e.i)&&d.e.i>=0&&d.e.i<200){
       if(!HB||HB.code!==d.code)HB={code:d.code,items:{}};
@@ -723,8 +753,9 @@ function onState(msg){
     subBuf.items[d.sid]=d.text.slice(0,200);applySubs();return;
   }
   if(d.t!=='state'||!d.s||typeof d.s.v!=='number')return;
-  if(S&&S.code===d.s.code&&d.s.v<S.v)return;
-  if(S&&S.code===d.s.code&&S.v===d.s.v){S.hostNow=d.s.hostNow;skew=S.hostNow-Date.now();return}
+  if(S&&S.code===d.s.code&&(d.s.epoch||0)<(S.epoch||0))return;                          // 古いホストの状態は無視
+  if(S&&S.code===d.s.code&&(d.s.epoch||0)===(S.epoch||0)&&d.s.v<S.v)return;
+  if(S&&S.code===d.s.code&&(d.s.epoch||0)===(S.epoch||0)&&S.v===d.s.v){S.hostNow=d.s.hostNow;skew=S.hostNow-Date.now();return}
   const prev=S;
   S=d.s;skew=S.hostNow-Date.now();
   if(prev&&prev.code===S.code&&prev.round===S.round&&prev.subs&&prev.subs.length===S.ns)S.subs=prev.subs;  // 同じラウンド内は作品を引き継ぐ
@@ -887,7 +918,7 @@ function startGame(){
 }
 function nextRound(){
   clearTimers();
-  S.round++;
+  S.round++;S.rk=(S.rk||0)+1;
   if(S.round>=S.total){S.phase='end';pub();emitHist();return}
   S.pk=((typeof S.pk==='number'?S.pk:-1)+1)%S.players.length;
   const par=S.players[S.pk], it=H.order[S.round%H.order.length];
@@ -975,6 +1006,53 @@ function copyHist(){
   const txt='【ありあわせ 各ラウンドの優勝文】\n'+lines.join('\n\n');
   try{navigator.clipboard.writeText(txt).then(()=>toast('コピーしました'),()=>toast('コピーできませんでした'))}catch(e){toast('コピーできませんでした')}
 }
+/* ===== ホストの引き継ぎ =====
+   ホストの状態が途絶えたら、参加者の中の「次の人」が新しいホストになる。順番は参加者リスト順(元ホストの次の人から)。
+   引き継ぐ人は、手元にある公開の状態(点数・ラウンド数・設定・優勝文の履歴)を土台に、続きを進める。
+   書いている途中・判定中だったラウンドは、作品の持ち主が分からなくなるため、同じ聞き手でやり直す。 */
+let HANDOVER=0;
+function takerRank(){
+  if(!S||isSpec())return -1;
+  const c=S.players.filter(p=>!p.bot&&p.pid!==S.hostPid).map(p=>p.pid);
+  return c.indexOf(me.pid);
+}
+function takeOver(why){
+  if(isHost||!S||!pl(me.pid))return;
+  const old=S.hostPid, now=Date.now(), rk0=S.rk;
+  isHost=true;HANDOVER=0;
+  S.hostPid=me.pid;S.epoch=(S.epoch||0)+1;S.hostNow=now;skew=0;
+  H={texts:{},claps:{},subs:[],timers:[],order:[],seen:{},ghost:{},bp:[],hist:[]};
+  S.players.forEach(p=>H.seen[p.pid]=now);S.specs.forEach(x=>H.seen[x.pid]=now);
+  if(HB&&HB.code===S.code)H.hist=Object.keys(HB.items).map(Number).sort((a,b)=>a-b).map(i=>Object.assign({i},HB.items[i]));
+  S.nh=H.hist.length;
+  H.order=shuffle(PROMPTS.map((_,i)=>i).filter(i=>S.gs.includes(PROMPTS[i][0])));
+  H.chat=(CH.list||[]).map(m=>({id:m.id,pid:m.pid,name:m.name,text:m.text}));H.chatN=H.chat.reduce((a,m)=>Math.max(a,m.id),0);H.chatT={};
+  HB=null;sdel('room');
+  const tag=why==='left'?'ホストが退室したので、あなたが新しいホストです':'ホストの接続が切れたので、あなたが新しいホストになりました';
+  if(S.phase==='lobby'||S.phase==='result'||S.phase==='end'){dropPid(old,'timeout')}
+  else{
+    dropPid(old,'timeout');
+    if((S.phase==='write'||S.phase==='judge')&&S.rk===rk0){                    // 元ホストが聞き手ではなかった場合: 同じ聞き手でやり直す
+      S.round--;S.pk=(S.pk-1+S.players.length)%S.players.length;nextRound();
+    }
+  }
+  if(S.phase==='write'||S.phase==='judge')S.endWhy=S.endWhy||'';
+  startLoops();pub();rearm();render();toast(tag);
+  if(S.phase==='write')toast('このラウンドは、作品を出し直してもらうため最初からやり直します');
+}
+function stepDown(ns){
+  const code=S.code;
+  stopLoops();if(H)clearTimers();
+  isHost=false;lpBeat();H=null;S=ns;skew=S.hostNow-Date.now();lastRx=Date.now();HANDOVER=0;
+  sdel('hsnap');store('room',JSON.stringify({code,spec:0,t:Date.now()}));
+  const t0=Date.now();
+  const inGame=()=>!!S&&(!!pl(me.pid)||isSpec());
+  loops.push(setInterval(()=>{if(!inGame())send('join',{spec:0})},1000));
+  loops.push(setInterval(()=>{if(inGame())send('hb')},HB_MS));
+  loops.push(setInterval(linkWatch,1000));
+  send('join',{spec:0});
+  toast('ほかの人がホストを引き継ぎました');after();
+}
 function rearm(){
   if(!S||!H)return;
   if(S.phase==='write'){
@@ -1019,6 +1097,7 @@ async function hostCreate(solo){
   const code=genCode();
   S={v:0,code,hostPid:me.pid,phase:'lobby',players:[{pid:me.pid,name:me.name,bot:0,score:0}],specs:[],pub:0,exact:0,bring:0,bn:{},nh:0,cp:null,cb:null,pk:-1,endWhy:'',laps:1,secs:45,minC:1,clapOn:0,gs:Object.keys(GENRES).filter(k=>!GENRES[k].off),round:-1,total:0,parent:null,pi:0,endsAt:0,hostNow:Date.now(),submitted:[],subs:null,clapped:[],res:null};
   H={texts:{},claps:{},subs:[],timers:[],order:[],seen:{},ghost:{},bp:[],hist:[]};
+  loadSet();
   if(solo){addBot();addBot();addBot()}
   startLoops();pub();
   netBusy=true;render();
@@ -1102,13 +1181,16 @@ async function joinRoom(opt){
 function linkWatch(){
   const w=$('#netwarn');if(!w||isHost||!S)return;
   const gap=Date.now()-lastRx;
+  const rk=takerRank();
+  if(rk>=0&&rk<=3&&gap>TAKE_MS+rk*(TAKE_MS/2)){takeOver('lost');return}     // 順番が来たら、新しいホストになる(1番目はTAKE_MS後、2番目はその半分あとに…)
   if(gap>SILENCE_MS){leave();toast('ホストとの接続が切れたので、退室しました');return}
-  if(gap>Math.min(9000,SILENCE_MS/2)){w.hidden=false;w.textContent='ホストとの接続を確認しています…('+Math.floor(gap/1000)+'秒)'}else w.hidden=true;
+  if(gap>Math.min(9000,SILENCE_MS/2)){w.hidden=false;w.textContent=(HANDOVER?'ホストが交代します…':'ホストとの接続を確認しています…')+'('+Math.floor(gap/1000)+'秒)'}else w.hidden=true;
 }
 function leave(){
   try{
     if(net&&S){
-      if(isHost)net.emit('state',{t:'closed',code:S.code}).catch(()=>{});
+      if(isHost){const nx=S.players.find(p=>!p.bot&&p.pid!==me.pid&&H&&H.seen&&Date.now()-(H.seen[p.pid]||0)<DROP_MS);   // 生きている次の人がいれば、その人にホストを任せる
+        net.emit('state',{t:'closed',code:S.code,next:nx?nx.pid:null}).catch(()=>{})}
       else net.emit('act',{t:'act',pid:me.pid,type:'bye',name:me.name}).catch(()=>{});
     }
   }catch(e){}
@@ -1171,8 +1253,8 @@ function syncLocal(){
     if(L.round!==-2)L={round:-2,hand:[],line:[],sel:-1,submitted:false,myText:'',clap:null,pickSel:null};
     return;
   }
-  if(S.round!==L.round){
-    L.round=S.round;L.line=[];L.sel=-1;L.clap=null;L.pickSel=null;
+  if(S.round!==L.round||(S.rk||0)!==L.rk){
+    L.round=S.round;L.rk=S.rk||0;L.line=[];L.sel=-1;L.clap=null;L.pickSel=null;
     L.submitted=S.submitted.includes(me.pid);if(!L.submitted)L.myText='';
     L.hand=isSpec()?[]:baseCards().concat(makeHand(roundGenre()));
   }
@@ -1300,6 +1382,7 @@ function lobby(){
     ${host?`<button class="btn ghost sm" data-a="addbot" ${n>=MAXP?'disabled':''}>ボットを追加</button>`:''}
   </section>
   <section class="panel">
+    ${host&&S.kept?`<p class="note">前回の設定を引き継いでいます。 <button class="btn ghost sm" data-a="resetset">初期設定に戻す</button></p>`:''}
     <div class="seg"><span>周回</span>${[1,2,3].map(v=>`<button class="${S.laps===v?'on':''}" ${host?`data-a="laps" data-v="${v}"`:'disabled'}>${v}周</button>`).join('')}</div>
     <div class="seg"><span>最低枚数</span>${[1,2,3,4,5,6].map(v=>`<button class="${(S.minC||1)===v&&!S.exact?'on':''}" ${host&&!S.exact?`data-a="minc" data-v="${v}"`:'disabled'}>${v}枚</button>`).join('')}</div>
     <p class="note">${S.exact?'枚数縛りの間は、最低枚数は使いません。':`文章を出すとき、カードを${S.minC||1}枚以上つなげる必要があります(「、」「。」は枚数に数えません)。`}</p>
@@ -1466,6 +1549,7 @@ document.addEventListener('click',e=>{
     case 'qtab':if(S&&S.phase==='lobby'&&GENRES[d.v]){LV=d.v;render()}break;
     case 'qback':LV=null;render();break;
     case 'exact':if(isHost&&S.phase==='lobby'&&[0,1,2,3,4,5,6].includes(+d.v)){S.exact=+d.v;pub()}break;
+    case 'resetset':if(isHost&&S.phase==='lobby'){Object.assign(S,defSet());S.kept=0;try{localStorage.removeItem(SET_KEY)}catch(e){}pub()}break;
     case 'findrooms':if(LB.on)lbStop();else lbStart();break;
     case 'joinroom':joinRoom({code:d.c});break;
     case 'pubopt':if(isHost&&S.phase==='lobby'){S.pub=+d.v?1:0;pub();lpBeat()}break;
