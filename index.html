@@ -167,6 +167,11 @@ details.how ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:col
 /* 審査・結果 */
 .lead{font-size:15px}
 .subs{display:flex;flex-direction:column;gap:14px}
+.who{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.who b{font-size:11px;color:var(--sun)}
+.who span{padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
+.who .ok{background:color-mix(in srgb,var(--mint) 22%,transparent);border-color:var(--mint);color:var(--mint);font-weight:800}
+.who .wt{color:var(--mute)}
 .sub{background:var(--paper);color:var(--paper-ink);border-radius:4px;padding:14px 16px;box-shadow:0 6px 14px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:10px;position:relative;text-align:left;border:0;width:100%}
 .sub.n0{background:#f6f0e2}.sub.n1{background:#ffe066}.sub.n2{background:#ffb3cf}.sub.n3{background:#a8f0de}.sub.n4{background:#b5defc}
 .sub p{font-family:var(--f-serif);font-weight:800;font-size:23px;line-height:1.5;word-break:break-all}
@@ -1311,6 +1316,12 @@ function write(){
   }
   return h+strip()+hostCtl();
 }
+/* ホストだけに、だれが「ウケた」を押したか(まだの人は誰か)を見せる */
+function clapWho(){
+  if(!isHost||!S.clapOn)return '';
+  const need=(S.cneed||[]).map(pl).filter(Boolean);if(!need.length)return '';
+  return `<div class="who" aria-label="ウケたを押した人"><b>ウケた</b>${need.map(p=>{const ok=S.clapped.includes(p.pid);return `<span class="${ok?'ok':'wt'}">${ok?'✓':'…'} ${esc(p.name)}</span>`}).join('')}</div>`;
+}
 function judge(){
   const isP=S.parent===me.pid, subs=S.subs||[];
   if(S.ns&&!S.subs)return head()+promptHTML()+`<p class="lead">作品を受け取っています…</p>`+strip()+hostCtl();
@@ -1327,6 +1338,7 @@ function judge(){
   if(isP){const need=(S.cneed||[]).filter(pid=>pl(pid)), got=need.filter(pid=>S.clapped.includes(pid)).length;
     h+=ready?`<button class="btn" data-a="pick" ${L.pickSel===null?'disabled':''}>これに決めた</button>`:`<p class="note">みんなが「ウケた」を押すのを待っています(${got} / ${need.length}人)。そろったら選べます。</p><button class="btn" disabled>全員のウケた待ち</button>`}
   else h+=`<p class="note">${S.clapOn?`ウケた ${(S.cneed||[]).filter(pid=>S.clapped.includes(pid)).length} / ${(S.cneed||[]).filter(pid=>pl(pid)).length}人 ・ ${ready?'聞き手が選んでいます':(clapped?'ほかの人を待っています':'気に入った作品に「ウケた」を押そう')}`:'聞き手が選んでいます'}</p>`;
+  h+=clapWho();
   return h+strip()+hostCtl();
 }
 function result(){
